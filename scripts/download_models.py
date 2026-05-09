@@ -99,6 +99,7 @@ def main() -> None:
     mirror_label = "[China Mirror]" if is_mirror else "[Official HuggingFace]"
     print(f"[...] HF_ENDPOINT: {hf_endpoint} {mirror_label}")
 
+    print(f"[...] LTX_APP_DATA_DIR: {_app_data}")
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     print(f"[...] Models directory: {MODELS_DIR}\n")
 

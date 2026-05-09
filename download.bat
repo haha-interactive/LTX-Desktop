@@ -20,9 +20,13 @@ if not defined HF_ENDPOINT (
 )
 if not defined HF_ENDPOINT set "HF_ENDPOINT=https://huggingface.co"
 
-REM Parse --data-dir=<path> if provided
-for %%a in (%*) do (
-    echo %%~a | find /i "--data-dir=" >nul 2>nul && for /f "tokens=2 delims==" %%b in ("%%~a") do set "LTX_APP_DATA_DIR=%%~b"
+REM Parse --data-dir=<path> if provided (string substitution method)
+set "_args=%*"
+if "!_args:--data-dir=!" neq "!_args!" (
+    for /f "tokens=* delims=--data-dir=" %%z in ("!_args!") do (
+        set "_remainder=%%z"
+        for /f "tokens=1" %%d in ("!_remainder!") do set "LTX_APP_DATA_DIR=%%d"
+    )
 )
 if defined LTX_APP_DATA_DIR (
     echo [...] App data directory: !LTX_APP_DATA_DIR!

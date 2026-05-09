@@ -10,6 +10,7 @@ cd /d "%SCRIPT_DIR%"
 REM API-only by default — pass --local to enable local model downloads.
 set "LTX_API_ONLY=1"
 echo %* | find /i "--local" >nul 2>nul && set "LTX_API_ONLY=0"
+echo %* | find /i "--cn" >nul 2>nul && set "HF_ENDPOINT=https://hf-mirror.com"
 
 REM ---------- Node.js ----------
 where node >nul 2>nul

@@ -15,19 +15,23 @@ _app_data = os.environ.get("LTX_APP_DATA_DIR") or \
     str(Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "LTXDesktop")
 MODELS_DIR = Path(_app_data) / "models"
 
+# Full offline bundle — matches what the app downloads on first launch.
+# Total: ~102 GB. Mirrors backend/runtime_config/model_download_specs.py.
 # (repo_id, filename, dest_name, is_folder)
-REQUIRED = [
-    ("Lightricks/LTX-2.3", "ltx-2.3-22b-distilled.safetensors", "ltx-2.3-22b-distilled.safetensors", False),
-    ("Lightricks/LTX-2.3", "ltx-2.3-spatial-upscaler-x2-1.0.safetensors", "ltx-2.3-spatial-upscaler-x2-1.0.safetensors", False),
-]
+MODELS = [
+    # --- LTX video generation pipeline (~70 GB) ---
+    ("Lightricks/LTX-2.3", "ltx-2.3-22b-distilled.safetensors", "ltx-2.3-22b-distilled.safetensors", False),  # 43 GB main model
+    ("Lightricks/LTX-2.3", "ltx-2.3-spatial-upscaler-x2-1.0.safetensors", "ltx-2.3-spatial-upscaler-x2-1.0.safetensors", False),  # 1.9 GB upscaler
+    ("Lightricks/gemma-3-12b-it-qat-q4_0-unquantized", None, "gemma-3-12b-it-qat-q4_0-unquantized", True),  # 25 GB text encoder
+    ("Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control", "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors", "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors", False),  # 654 MB IC-LoRA control
 
-# Uncomment to enable depth/pose/canny control features:
-OPTIONAL = [
-    # ("Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control", "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors", "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors", False),
-    # ("Intel/dpt-hybrid-midas", None, "dpt-hybrid-midas", True),
-    # ("hr16/yolox-onnx", "yolox_l.torchscript.pt", "yolox_l.torchscript.pt", False),
-    # ("hr16/DWPose-TorchScript-BatchSize5", "dw-ll_ucoco_384_bs5.torchscript.pt", "dw-ll_ucoco_384_bs5.torchscript.pt", False),
-    # ("Lightricks/gemma-3-12b-it-qat-q4_0-unquantized", None, "gemma-3-12b-it-qat-q4_0-unquantized", True),  # 25 GB — skip if using API text encoding
+    # --- Control feature preprocessors (~853 MB) ---
+    ("Intel/dpt-hybrid-midas", None, "dpt-hybrid-midas", True),  # 500 MB depth
+    ("hr16/yolox-onnx", "yolox_l.torchscript.pt", "yolox_l.torchscript.pt", False),  # 218 MB person detector
+    ("hr16/DWPose-TorchScript-BatchSize5", "dw-ll_ucoco_384_bs5.torchscript.pt", "dw-ll_ucoco_384_bs5.torchscript.pt", False),  # 135 MB pose
+
+    # --- Image generation (31 GB) ---
+    ("Tongyi-MAI/Z-Image-Turbo", None, "Z-Image-Turbo", True),  # 31 GB image gen
 ]
 
 
@@ -103,10 +107,11 @@ def main() -> None:
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     print(f"[...] Models directory: {MODELS_DIR}\n")
 
-    for repo_id, filename, dest_name, is_folder in REQUIRED + OPTIONAL:
+    for repo_id, filename, dest_name, is_folder in MODELS:
         if is_folder:
             download_snapshot(repo_id, dest_name)
         else:
+            assert filename is not None
             download_file(repo_id, filename, dest_name)
 
     print("\n[OK] Download complete. Run: launch.bat --local")

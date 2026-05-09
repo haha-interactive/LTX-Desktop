@@ -87,7 +87,9 @@ def download_file(repo_id: str, filename: str, dest_name: str) -> None:
 
 def download_snapshot(repo_id: str, dest_name: str) -> None:
     dest = MODELS_DIR / dest_name
-    if dest.exists():
+    # Match app's is_cp_downloaded(): folder must exist AND be non-empty.
+    # Avoids skipping interrupted/empty folders so they can resume.
+    if dest.exists() and dest.is_dir() and any(dest.iterdir()):
         print(f"[OK] Already exists: {dest_name} — skipping")
         return
     hf_endpoint = os.environ.get("HF_ENDPOINT", "https://huggingface.co")

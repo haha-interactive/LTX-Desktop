@@ -119,7 +119,7 @@ export interface SelectClipMode {
   mode?: 'replace' | 'toggle' | 'add'
 }
 
-function makeId(prefix: string): string {
+export function makeId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
 }
 
@@ -149,7 +149,7 @@ export function applyStateAction<T>(value: SetStateAction<T>, current: T): T {
     : value
 }
 
-function updateEditorModel(state: EditorState, updater: (editorModel: EditorModel) => EditorModel): EditorState {
+export function updateEditorModel(state: EditorState, updater: (editorModel: EditorModel) => EditorModel): EditorState {
   const nextEditorModel = updater(state.editorModel)
   if (nextEditorModel === state.editorModel) return state
   return markEditorModelDirty({
@@ -158,7 +158,7 @@ function updateEditorModel(state: EditorState, updater: (editorModel: EditorMode
   })
 }
 
-function updateSession(state: EditorState, updater: (session: EditorState['session']) => EditorState['session']): EditorState {
+export function updateSession(state: EditorState, updater: (session: EditorState['session']) => EditorState['session']): EditorState {
   const nextSession = updater(state.session)
   if (nextSession === state.session) return state
   return {
@@ -167,7 +167,7 @@ function updateSession(state: EditorState, updater: (session: EditorState['sessi
   }
 }
 
-function withActiveTimeline(editorModel: EditorModel, updater: (timeline: Timeline) => Timeline): EditorModel {
+export function withActiveTimeline(editorModel: EditorModel, updater: (timeline: Timeline) => Timeline): EditorModel {
   const activeTimeline = getActiveTimelineFromEditorModel(editorModel)
   if (!activeTimeline) return editorModel
   return {
@@ -2325,132 +2325,6 @@ export function closeExportModal(state: EditorState): EditorState {
   }))
 }
 
-export function openSaveSelectionAsTakeModal(state: EditorState): EditorState {
-  return updateSession(state, session => ({
-    ...session,
-    ui: {
-      ...session.ui,
-      showSaveSelectionAsTakeModal: true,
-    },
-  }))
-}
-
-export function closeSaveSelectionAsTakeModal(state: EditorState): EditorState {
-  return updateSession(state, session => ({
-    ...session,
-    ui: {
-      ...session.ui,
-      showSaveSelectionAsTakeModal: false,
-    },
-  }))
-}
-
-export interface ReplaceSelectionWithTakeParams {
-  expandedClipIds: string[]
-  asset: Asset
-  insertTrackIndex: number
-  audioInsertTrackIndex: number | null
-  insertStartTime: number
-  selectionDuration: number
-}
-
-export function replaceSelectionWithTake(
-  state: EditorState,
-  params: ReplaceSelectionWithTakeParams,
-): EditorState {
-  const {
-    expandedClipIds,
-    asset,
-    insertTrackIndex,
-    audioInsertTrackIndex,
-    insertStartTime,
-    selectionDuration,
-  } = params
-
-  let next = addAssetToEditor(state, asset)
-
-  const activeIdx = asset.activeTakeIndex ?? (asset.takes && asset.takes.length > 0 ? asset.takes.length - 1 : 0)
-  const videoClipId = makeId('clip')
-  const audioClipId = audioInsertTrackIndex !== null ? makeId('clip-audio') : null
-
-  // Mute video's embedded audio when we are also inserting a paired audio clip,
-  // otherwise the audio plays twice.
-  const videoClip: TimelineClip = {
-    id: videoClipId,
-    assetId: asset.id,
-    type: 'video',
-    startTime: insertStartTime,
-    duration: selectionDuration,
-    trimStart: 0,
-    trimEnd: 0,
-    speed: 1,
-    reversed: false,
-    muted: audioClipId !== null,
-    volume: 1,
-    trackIndex: insertTrackIndex,
-    asset,
-    flipH: false,
-    flipV: false,
-    transitionIn: { type: 'none', duration: 0 },
-    transitionOut: { type: 'none', duration: 0 },
-    colorCorrection: { ...DEFAULT_COLOR_CORRECTION },
-    opacity: 100,
-    takeIndex: activeIdx,
-    ...(audioClipId !== null ? { linkedClipIds: [audioClipId] } : {}),
-  }
-
-  const audioClip: TimelineClip | null = audioClipId !== null && audioInsertTrackIndex !== null
-    ? {
-        id: audioClipId,
-        assetId: asset.id,
-        type: 'audio',
-        startTime: insertStartTime,
-        duration: selectionDuration,
-        trimStart: 0,
-        trimEnd: 0,
-        speed: 1,
-        reversed: false,
-        muted: false,
-        volume: 1,
-        trackIndex: audioInsertTrackIndex,
-        asset,
-        flipH: false,
-        flipV: false,
-        transitionIn: { type: 'none', duration: 0 },
-        transitionOut: { type: 'none', duration: 0 },
-        colorCorrection: { ...DEFAULT_COLOR_CORRECTION },
-        opacity: 100,
-        takeIndex: activeIdx,
-        linkedClipIds: [videoClipId],
-      }
-    : null
-
-  const deleteSet = new Set(expandedClipIds)
-  const inserted: TimelineClip[] = audioClip ? [videoClip, audioClip] : [videoClip]
-
-  next = updateEditorModel(next, editorModel => withActiveTimeline(editorModel, timeline => ({
-    ...timeline,
-    clips: [
-      ...timeline.clips
-        .filter(clip => !deleteSet.has(clip.id))
-        .map(clip => (
-          clip.linkedClipIds && clip.linkedClipIds.some(id => deleteSet.has(id))
-            ? { ...clip, linkedClipIds: clip.linkedClipIds.filter(id => !deleteSet.has(id)) }
-            : clip
-        )),
-      ...inserted,
-    ],
-  })))
-
-  return updateSession(next, session => ({
-    ...session,
-    selection: {
-      ...session.selection,
-      clipIds: new Set([videoClipId]),
-    },
-  }))
-}
-
 export function setOpenTimelineIds(state: EditorState, ids: Set<string>): EditorState {
   return updateSession(state, session => ({
     ...session,
@@ -2782,3 +2656,8 @@ export function applyPendingClipTakeUpdate(
     })),
   }
 }
+
+export {
+  replaceSelectionWithTake,
+  type ReplaceSelectionWithTakeParams,
+} from './take-export-actions'

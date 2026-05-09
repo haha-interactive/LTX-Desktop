@@ -19,6 +19,7 @@ import {
   selectTracks,
 } from './editor-selectors'
 import { useEditorActions, useEditorStore } from './editor-store'
+import { getActiveTakeLabel } from './clip-display-name'
 
 interface ClipPropertiesPanelProps {
   onCreateVideoFromImage: (clip: TimelineClip) => void
@@ -130,14 +131,13 @@ export function ClipPropertiesPanel(props: ClipPropertiesPanelProps) {
         const currentTakeIdx = selectedClip.takeIndex ?? (liveAsset?.activeTakeIndex ?? (totalTakes - 1))
         const displayTakeNum = Math.min(currentTakeIdx, totalTakes - 1) + 1
 
-        // Get the file path and label for the current take
+        // Get the file path for the current take
         let filePath = liveAsset?.path || ''
-        let activeTakeLabel: string | undefined
-        if (liveAsset?.takes && liveAsset.takes.length > 0) {
-          const idx = Math.max(0, Math.min(currentTakeIdx, liveAsset.takes.length - 1))
+        if (liveAsset?.takes && liveAsset.takes.length > 0 && selectedClip.takeIndex !== undefined) {
+          const idx = Math.max(0, Math.min(selectedClip.takeIndex, liveAsset.takes.length - 1))
           filePath = liveAsset.takes[idx].path
-          activeTakeLabel = liveAsset.takes[idx].label
         }
+        const activeTakeLabel = getActiveTakeLabel(selectedClip, liveAsset)
 
         // Determine if this is an upscaled take (take index > 0 and resolution is higher than original)
         const originalRes = liveAsset?.generationParams?.resolution

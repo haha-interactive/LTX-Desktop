@@ -13,6 +13,7 @@ import { Tooltip } from '../components/ui/tooltip'
 import { Group, Panel, Separator, type PanelImperativeHandle } from 'react-resizable-panels'
 import { ExportModal } from '../components/ExportModal'
 import { SaveSelectionAsTakeModal } from '../components/SaveSelectionAsTakeModal'
+import { SaveSelectionAsTakeProvider } from './editor/SaveSelectionAsTakeContext'
 import { MenuBar, type MenuDefinition } from '../components/MenuBar'
 import { ImportTimelineModal } from '../components/ImportTimelineModal'
 import type { Asset, Project, TimelineClip } from '../types/project-model'
@@ -107,10 +108,12 @@ export function VideoEditor(props: VideoEditorProps) {
 
   return (
     <EditorStoreProvider store={editorStore}>
-      <VideoEditorWithStore
-        currentProject={props.currentProject}
-        saveProject={props.saveProject}
-      />
+      <SaveSelectionAsTakeProvider>
+        <VideoEditorWithStore
+          currentProject={props.currentProject}
+          saveProject={props.saveProject}
+        />
+      </SaveSelectionAsTakeProvider>
     </EditorStoreProvider>
   )
 }

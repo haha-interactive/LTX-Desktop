@@ -38,7 +38,7 @@ function makeAssetId(): string {
 }
 
 export function useTakeFolderExport({ projectId }: UseTakeFolderExportParams) {
-  const { replaceSelectionWithTake, closeSaveSelectionAsTakeModal } = useEditorActions()
+  const { replaceSelectionWithTake } = useEditorActions()
   const payload = useEditorStore(selectSelectionExportPayload)
 
   const [status, setStatus] = useState<TakeFolderExportStatus>('idle')
@@ -154,11 +154,6 @@ export function useTakeFolderExport({ projectId }: UseTakeFolderExportParams) {
     return true
   }, [projectId, replaceSelectionWithTake])
 
-  const closeAfterDone = useCallback(() => {
-    closeSaveSelectionAsTakeModal()
-    reset()
-  }, [closeSaveSelectionAsTakeModal, reset])
-
   return {
     payload,
     status,
@@ -167,6 +162,5 @@ export function useTakeFolderExport({ projectId }: UseTakeFolderExportParams) {
     listFolders,
     runExport,
     reset,
-    closeAfterDone,
   }
 }

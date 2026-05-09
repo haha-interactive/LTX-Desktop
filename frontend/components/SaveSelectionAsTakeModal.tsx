@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { X, Layers, Loader2, Check, AlertCircle, FolderOpen, ChevronDown } from 'lucide-react'
 import { Button } from './ui/button'
-import {
-  selectShowSaveSelectionAsTakeModal,
-} from '../views/editor/editor-selectors'
-import { useEditorStore } from '../views/editor/editor-store'
+import { useSaveSelectionAsTakeModal } from '../views/editor/SaveSelectionAsTakeContext'
 import {
   useTakeFolderExport,
   type TakeFolderListEntry,
@@ -33,7 +30,7 @@ function formatDuration(seconds: number): string {
 }
 
 export function SaveSelectionAsTakeModal({ projectId }: SaveSelectionAsTakeModalProps) {
-  const isOpen = useEditorStore(selectShowSaveSelectionAsTakeModal)
+  const { isOpen, close: closeModal } = useSaveSelectionAsTakeModal()
   const {
     payload,
     status,
@@ -42,7 +39,6 @@ export function SaveSelectionAsTakeModal({ projectId }: SaveSelectionAsTakeModal
     listFolders,
     runExport,
     reset,
-    closeAfterDone,
   } = useTakeFolderExport({ projectId })
 
   const [mode, setMode] = useState<TakeFolderTargetMode>('create')
@@ -78,8 +74,9 @@ export function SaveSelectionAsTakeModal({ projectId }: SaveSelectionAsTakeModal
 
   const close = useCallback(() => {
     if (status === 'rendering' || status === 'preparing' || status === 'finalizing') return
-    closeAfterDone()
-  }, [closeAfterDone, status])
+    closeModal()
+    reset()
+  }, [closeModal, reset, status])
 
   const handleSubmit = useCallback(async () => {
     if (!payload || !selectionSummary) return

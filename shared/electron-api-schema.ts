@@ -239,56 +239,6 @@ export const electronAPISchemas = {
     }),
   },
 
-  // Export selection -> takes folder
-  listProjectTakesFolders: {
-    input: z.object({ projectId: z.string() }),
-    output: ipcResult({
-      folders: z.array(z.object({
-        name: z.string(),
-        path: z.string(),
-        takeCount: z.number(),
-        baseDuration: z.number().nullable(),
-      })),
-    }),
-  },
-  prepareTakesFolderTarget: {
-    input: z.object({
-      projectId: z.string(),
-      mode: z.enum(['create', 'append']),
-      folderName: z.string(),
-      expectedDuration: z.number(),
-    }),
-    output: ipcResult({
-      folderPath: z.string(),
-      takeFilename: z.string(),
-      append: z.boolean(),
-      baseDuration: z.number().nullable(),
-    }),
-  },
-  commitTakeManifest: {
-    input: z.object({
-      folderPath: z.string(),
-      takeFilename: z.string(),
-      label: z.string().optional(),
-      projectId: z.string(),
-    }),
-    output: ipcResult({
-      sourceFolder: z.string(),
-      displayName: z.string(),
-      duration: z.number(),
-      activeTakeIndex: z.number(),
-      takes: z.array(z.object({
-        path: z.string(),
-        bigThumbnailPath: z.string(),
-        smallThumbnailPath: z.string(),
-        width: z.number(),
-        height: z.number(),
-        createdAt: z.number(),
-        label: z.string().optional(),
-      })),
-    }),
-  },
-
   // File dialogs & save
   showSaveDialog: {
     input: z.object({
@@ -395,6 +345,56 @@ export const electronAPISchemas = {
   sendAnalyticsEvent: {
     input: z.object({ eventName: z.string(), extraDetails: z.record(z.string(), z.unknown()).nullable().optional() }),
     output: z.void(),
+  },
+
+  // Export selection -> takes folder
+  listProjectTakesFolders: {
+    input: z.object({ projectId: z.string() }),
+    output: ipcResult({
+      folders: z.array(z.object({
+        name: z.string(),
+        path: z.string(),
+        takeCount: z.number(),
+        baseDuration: z.number().nullable(),
+      })),
+    }),
+  },
+  prepareTakesFolderTarget: {
+    input: z.object({
+      projectId: z.string(),
+      mode: z.enum(['create', 'append']),
+      folderName: z.string(),
+      expectedDuration: z.number(),
+    }),
+    output: ipcResult({
+      folderPath: z.string(),
+      takeFilename: z.string(),
+      append: z.boolean(),
+      baseDuration: z.number().nullable(),
+    }),
+  },
+  commitTakeManifest: {
+    input: z.object({
+      folderPath: z.string(),
+      takeFilename: z.string(),
+      label: z.string().optional(),
+      projectId: z.string(),
+    }),
+    output: ipcResult({
+      sourceFolder: z.string(),
+      displayName: z.string(),
+      duration: z.number(),
+      activeTakeIndex: z.number(),
+      takes: z.array(z.object({
+        path: z.string(),
+        bigThumbnailPath: z.string(),
+        smallThumbnailPath: z.string(),
+        width: z.number(),
+        height: z.number(),
+        createdAt: z.number(),
+        label: z.string().optional(),
+      })),
+    }),
   },
 } as const
 

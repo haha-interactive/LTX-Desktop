@@ -941,10 +941,6 @@ export interface SelectionExportPayload {
   inferredHeight: number
 }
 
-export function selectShowSaveSelectionAsTakeModal(state: EditorState): boolean {
-  return state.session.ui.showSaveSelectionAsTakeModal
-}
-
 export function selectSelectionExportPayload(state: EditorState): SelectionExportPayload | null {
   const selectedIds = selectSelectedClipIds(state)
   if (selectedIds.size === 0) return null

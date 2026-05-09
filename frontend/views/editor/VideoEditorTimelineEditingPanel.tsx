@@ -76,6 +76,8 @@ import {
 } from './editor-selectors'
 import { useTimelineDrag } from './useTimelineDrag'
 import { useEditorActions, useEditorStore } from './editor-store'
+import { getClipDisplayLabel } from './clip-display-name'
+import { SaveSelectionAsTakeToolbarButton } from '../../components/SaveSelectionAsTakeToolbarButton'
 
 // Custom scissors cursor SVG for the blade tool (white with dark outline for contrast)
 const SCISSORS_CURSOR_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='6' cy='6' r='3'/><path d='M8.12 8.12 12 12'/><path d='M20 4 8.12 15.88'/><circle cx='6' cy='18' r='3'/><path d='M14.8 14.8 20 20'/></svg>`
@@ -2516,21 +2518,7 @@ export function VideoEditorTimelineEditingPanel(props: VideoEditorTimelineEditin
                         })()}
                         <div className={`flex-1 min-w-0 ${clip.type === 'audio' ? 'relative z-10' : ''}`}>
                           <p className={`text-[10px] truncate ${clip.type === 'adjustment' ? 'text-blue-300' : clip.type === 'text' ? 'text-cyan-300' : clip.type === 'audio' ? 'text-emerald-300' : 'text-zinc-300'}`}>
-                            {clip.type === 'adjustment'
-                              ? 'Adjustment Layer'
-                              : clip.type === 'text'
-                                ? (clip.textStyle?.text?.slice(0, 30) || 'Text')
-                                : (() => {
-                                    const liveAsset = getLiveAsset(clip)
-                                    const takeIdx = clip.takeIndex ?? liveAsset?.activeTakeIndex
-                                    const activeTakeLabel = liveAsset?.takes && takeIdx !== undefined
-                                      ? liveAsset.takes[Math.max(0, Math.min(takeIdx, liveAsset.takes.length - 1))]?.label
-                                      : undefined
-                                    return activeTakeLabel?.slice(0, 30)
-                                      || clip.asset?.prompt?.slice(0, 30)
-                                      || clip.importedName
-                                      || 'Clip'
-                                  })()}
+                            {clip.type === 'adjustment' ? 'Adjustment Layer' : clip.type === 'text' ? (clip.textStyle?.text?.slice(0, 30) || 'Text') : getClipDisplayLabel(clip, getLiveAsset(clip))}
                           </p>
                           <div className="flex items-center gap-2 text-[9px] text-zinc-500">
                             <span>{clip.duration.toFixed(1)}s</span>
@@ -3165,17 +3153,7 @@ export function VideoEditorTimelineEditingPanel(props: VideoEditorTimelineEditin
             Export
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-6 border-zinc-700 text-zinc-400 text-[10px] px-2"
-            onClick={() => actions.openSaveSelectionAsTakeModal()}
-            disabled={selectedClipIds.size === 0}
-            title={selectedClipIds.size === 0 ? 'Select clips to save as a take' : 'Save selection as a take variant'}
-          >
-            <Layers className="h-3 w-3 mr-1" />
-            Save as Take
-          </Button>
+          <SaveSelectionAsTakeToolbarButton />
 
 
           {/* Subtitle import/export */}

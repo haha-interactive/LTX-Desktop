@@ -12,6 +12,7 @@ import { logger } from '../lib/logger'
 import { Tooltip } from '../components/ui/tooltip'
 import { Group, Panel, Separator, type PanelImperativeHandle } from 'react-resizable-panels'
 import { ExportModal } from '../components/ExportModal'
+import { SaveSelectionAsTakeModal } from '../components/SaveSelectionAsTakeModal'
 import { MenuBar, type MenuDefinition } from '../components/MenuBar'
 import { ImportTimelineModal } from '../components/ImportTimelineModal'
 import type { Asset, Project, TimelineClip } from '../types/project-model'
@@ -980,6 +981,8 @@ function VideoEditorWithStore({
           projectName={currentProject?.name || 'Untitled'}
         />
       )}
+
+      <SaveSelectionAsTakeModal projectId={currentProjectId} />
       
       {showImportTimelineModal && (
         <ImportTimelineModal

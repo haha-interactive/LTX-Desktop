@@ -36,6 +36,7 @@ export function TakeContextMenu({
     >
       <div className="px-3 py-1 text-[10px] text-zinc-500 font-medium">
         Take {takeIndex + 1} of {tcAsset.takes!.length}
+        {take.label ? <span className="text-zinc-300"> · {take.label}</span> : null}
       </div>
 
       {!isActive && (

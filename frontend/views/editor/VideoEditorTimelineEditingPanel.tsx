@@ -2516,7 +2516,21 @@ export function VideoEditorTimelineEditingPanel(props: VideoEditorTimelineEditin
                         })()}
                         <div className={`flex-1 min-w-0 ${clip.type === 'audio' ? 'relative z-10' : ''}`}>
                           <p className={`text-[10px] truncate ${clip.type === 'adjustment' ? 'text-blue-300' : clip.type === 'text' ? 'text-cyan-300' : clip.type === 'audio' ? 'text-emerald-300' : 'text-zinc-300'}`}>
-                            {clip.type === 'adjustment' ? 'Adjustment Layer' : clip.type === 'text' ? (clip.textStyle?.text?.slice(0, 30) || 'Text') : clip.asset?.prompt?.slice(0, 30) || clip.importedName || 'Clip'}
+                            {clip.type === 'adjustment'
+                              ? 'Adjustment Layer'
+                              : clip.type === 'text'
+                                ? (clip.textStyle?.text?.slice(0, 30) || 'Text')
+                                : (() => {
+                                    const liveAsset = getLiveAsset(clip)
+                                    const takeIdx = clip.takeIndex ?? liveAsset?.activeTakeIndex
+                                    const activeTakeLabel = liveAsset?.takes && takeIdx !== undefined
+                                      ? liveAsset.takes[Math.max(0, Math.min(takeIdx, liveAsset.takes.length - 1))]?.label
+                                      : undefined
+                                    return activeTakeLabel?.slice(0, 30)
+                                      || clip.asset?.prompt?.slice(0, 30)
+                                      || clip.importedName
+                                      || 'Clip'
+                                  })()}
                           </p>
                           <div className="flex items-center gap-2 text-[9px] text-zinc-500">
                             <span>{clip.duration.toFixed(1)}s</span>
@@ -3150,8 +3164,20 @@ export function VideoEditorTimelineEditingPanel(props: VideoEditorTimelineEditin
             <Upload className="h-3 w-3 mr-1" />
             Export
           </Button>
-          
-          
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 border-zinc-700 text-zinc-400 text-[10px] px-2"
+            onClick={() => actions.openSaveSelectionAsTakeModal()}
+            disabled={selectedClipIds.size === 0}
+            title={selectedClipIds.size === 0 ? 'Select clips to save as a take' : 'Save selection as a take variant'}
+          >
+            <Layers className="h-3 w-3 mr-1" />
+            Save as Take
+          </Button>
+
+
           {/* Subtitle import/export */}
           {tracks.some(t => t.type === 'subtitle') && (
             <>

@@ -130,11 +130,13 @@ export function ClipPropertiesPanel(props: ClipPropertiesPanelProps) {
         const currentTakeIdx = selectedClip.takeIndex ?? (liveAsset?.activeTakeIndex ?? (totalTakes - 1))
         const displayTakeNum = Math.min(currentTakeIdx, totalTakes - 1) + 1
 
-        // Get the file path for the current take
+        // Get the file path and label for the current take
         let filePath = liveAsset?.path || ''
-        if (liveAsset?.takes && liveAsset.takes.length > 0 && selectedClip.takeIndex !== undefined) {
-          const idx = Math.max(0, Math.min(selectedClip.takeIndex, liveAsset.takes.length - 1))
+        let activeTakeLabel: string | undefined
+        if (liveAsset?.takes && liveAsset.takes.length > 0) {
+          const idx = Math.max(0, Math.min(currentTakeIdx, liveAsset.takes.length - 1))
           filePath = liveAsset.takes[idx].path
+          activeTakeLabel = liveAsset.takes[idx].label
         }
 
         // Determine if this is an upscaled take (take index > 0 and resolution is higher than original)
@@ -150,7 +152,10 @@ export function ClipPropertiesPanel(props: ClipPropertiesPanelProps) {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-400">Take</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-white font-medium">{displayTakeNum} / {totalTakes}</span>
+                    <span className="text-xs text-white font-medium">
+                      {displayTakeNum} / {totalTakes}
+                      {activeTakeLabel ? <span className="text-zinc-400 font-normal"> · {activeTakeLabel}</span> : null}
+                    </span>
                     {totalTakes > 1 && (
                       <Tooltip content="Delete this take" side="left">
                         <button

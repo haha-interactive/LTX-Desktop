@@ -79,6 +79,7 @@ export const assetTakeSchema = z.object({
   width: z.number().optional(),
   height: z.number().optional(),
   createdAt: z.number(),
+  label: z.string().optional(),
 })
 
 export const subtitleStyleSchema = z.object({

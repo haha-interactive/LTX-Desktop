@@ -79,6 +79,7 @@ export interface EditorToolsState {
 export interface EditorUiState {
   showImportTimelineModal: boolean
   showExportModal: boolean
+  showSaveSelectionAsTakeModal: boolean
   showSourceMonitor: boolean
   showPropertiesPanel: boolean
   showEffectsBrowser: boolean
@@ -266,6 +267,7 @@ export function createInitialEditorState(
       ui: {
         showImportTimelineModal: false,
         showExportModal: false,
+        showSaveSelectionAsTakeModal: false,
         showSourceMonitor: false,
         showPropertiesPanel: false,
         showEffectsBrowser: false,

@@ -928,3 +928,97 @@ export function selectSortedAssets(state: EditorState, filters: AssetListFilters
 export function selectVisibleAssets(state: EditorState, filters: AssetListFilters): Asset[] {
   return selectSortedAssets(state, filters)
 }
+
+export interface SelectionExportPayload {
+  exportClips: ExportClipData[]
+  selectionStart: number
+  selectionEnd: number
+  selectionDuration: number
+  insertTrackIndex: number
+  audioInsertTrackIndex: number | null
+  expandedClipIds: string[]
+  inferredWidth: number
+  inferredHeight: number
+}
+
+export function selectShowSaveSelectionAsTakeModal(state: EditorState): boolean {
+  return state.session.ui.showSaveSelectionAsTakeModal
+}
+
+export function selectSelectionExportPayload(state: EditorState): SelectionExportPayload | null {
+  const selectedIds = selectSelectedClipIds(state)
+  if (selectedIds.size === 0) return null
+
+  const allClips = selectClips(state)
+  const tracks = selectTracks(state)
+  const assets = selectAssets(state)
+
+  // Expand selection to include linked clips so video+audio pairs stay together
+  // for both rendering AND replacement on the timeline.
+  const expanded = new Set<string>(selectedIds)
+  for (const id of selectedIds) {
+    const clip = allClips.find((candidate) => candidate.id === id)
+    clip?.linkedClipIds?.forEach((linkedId) => expanded.add(linkedId))
+  }
+
+  const renderable = allClips.filter((clip) =>
+    expanded.has(clip.id)
+    && (clip.type === 'video' || clip.type === 'image' || clip.type === 'audio')
+    && tracks[clip.trackIndex]?.enabled !== false
+  )
+  if (renderable.length === 0) return null
+
+  const selectionStart = Math.min(...renderable.map((clip) => clip.startTime))
+  const selectionEnd = Math.max(...renderable.map((clip) => clip.startTime + clip.duration))
+  const selectionDuration = selectionEnd - selectionStart
+  if (selectionDuration <= 0) return null
+
+  const exportClips: ExportClipData[] = renderable.map((clip) => ({
+    path: selectClipPathFromAssets(assets, clip),
+    type: clip.type,
+    startTime: clip.startTime - selectionStart,
+    duration: clip.duration,
+    trimStart: clip.trimStart,
+    speed: clip.speed || 1,
+    reversed: clip.reversed || false,
+    flipH: clip.flipH || false,
+    flipV: clip.flipV || false,
+    opacity: clip.opacity ?? 100,
+    trackIndex: clip.trackIndex,
+    muted: clip.muted || false,
+    volume: clip.volume ?? 1,
+  }))
+
+  const visualSelected = renderable.filter((clip) => clip.type === 'video' || clip.type === 'image')
+  const audioSelected = renderable.filter((clip) => clip.type === 'audio')
+  const insertTrackIndex = visualSelected.length > 0
+    ? Math.max(...visualSelected.map((clip) => clip.trackIndex))
+    : Math.max(...renderable.map((clip) => clip.trackIndex))
+  const audioInsertTrackIndex = audioSelected.length > 0
+    ? Math.max(...audioSelected.map((clip) => clip.trackIndex))
+    : null
+
+  // Infer output dimensions from the topmost selected video/image clip.
+  let inferredWidth = 1920
+  let inferredHeight = 1080
+  for (let i = 0; i < visualSelected.length; i += 1) {
+    const dims = selectClipDimensionsFromAssets(assets, visualSelected[i])
+    if (dims) {
+      inferredWidth = dims.width
+      inferredHeight = dims.height
+      break
+    }
+  }
+
+  return {
+    exportClips,
+    selectionStart,
+    selectionEnd,
+    selectionDuration,
+    insertTrackIndex,
+    audioInsertTrackIndex,
+    expandedClipIds: [...expanded],
+    inferredWidth,
+    inferredHeight,
+  }
+}

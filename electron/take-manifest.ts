@@ -36,7 +36,7 @@ function probeVideo(videoPath: string): VideoProbe {
 }
 
 // One frame at 24fps; tolerated mismatch between takes.
-const DURATION_EPSILON_SECONDS = 1 / 24
+export const DURATION_EPSILON_SECONDS = 1 / 24
 
 const takeEntrySchema = z.object({
   file: z.string().min(1),
@@ -59,6 +59,7 @@ export interface ResolvedTake {
   width: number
   height: number
   createdAt: number
+  label?: string
 }
 
 export interface TakeFolderResult {
@@ -200,6 +201,7 @@ export function loadTakeFolder(folderPath: string, projectId: string): TakeFolde
       width: probe.width,
       height: probe.height,
       createdAt: now,
+      ...(entry.label ? { label: entry.label } : {}),
     }
   })
 

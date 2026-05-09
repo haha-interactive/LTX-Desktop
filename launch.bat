@@ -7,6 +7,10 @@ setlocal EnableDelayedExpansion
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
+REM API-only by default — pass --local to enable local model downloads.
+set "LTX_API_ONLY=1"
+echo %* | find /i "--local" >nul 2>nul && set "LTX_API_ONLY=0"
+
 REM ---------- Node.js ----------
 where node >nul 2>nul
 if errorlevel 1 (
@@ -57,5 +61,6 @@ if not "!UV_RC!"=="0" (
 
 echo.
 echo Launching LTX Desktop...
+if "!LTX_API_ONLY!"=="1" echo [...] API-only mode ^(use --local to enable local model downloads^)
 call pnpm dev
 endlocal

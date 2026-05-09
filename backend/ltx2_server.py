@@ -170,6 +170,10 @@ LTX_API_BASE_URL = "https://api.ltx.video"
 
 
 def _resolve_local_generations_mode() -> LocalGenerationMode:
+    if os.environ.get("LTX_API_ONLY") == "1":
+        logger.info("Runtime policy local_generations_mode=unsupported (LTX_API_ONLY=1, skipping GPU check)")
+        return "unsupported"
+
     gpu_info = GpuInfoImpl()
     system = platform.system()
     cuda_available = gpu_info.get_cuda_available()

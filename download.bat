@@ -1,9 +1,10 @@
 @echo off
 REM Download LTX models for local generation.
 REM Usage:
-REM   download.bat                            -- download from huggingface.co (default)
-REM   download.bat --cn                       -- use hf-mirror.com (China)
-REM   download.bat --data-dir=F:\LTX         -- custom data directory
+REM   download.bat                                  -- download from huggingface.co (default)
+REM   download.bat --cn                             -- use hf-mirror.com (China)
+REM   download.bat --data-dir F:\LTX               -- custom data directory (note: SPACE, not =)
+REM   download.bat --cn --data-dir F:\LTX_APP_DIR  -- both flags
 
 setlocal EnableDelayedExpansion
 
@@ -15,12 +16,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Parse all flags via shift-based loop (reliable; avoids for-loop tokenization bugs)
+REM Parse all flags. Note: Windows batch treats '=' as arg separator,
+REM so --data-dir=F:\X gets split into two args. We handle both forms.
 :parse_args
 if "%~1"=="" goto args_done
 set "_arg=%~1"
-if /i "!_arg!"=="--cn" set "HF_ENDPOINT=https://hf-mirror.com"
-if /i "!_arg:~0,11!"=="--data-dir=" set "LTX_APP_DATA_DIR=!_arg:~11!"
+if defined _PENDING_DDIR (
+    set "LTX_APP_DATA_DIR=!_arg!"
+    set "_PENDING_DDIR="
+) else (
+    if /i "!_arg!"=="--cn" set "HF_ENDPOINT=https://hf-mirror.com"
+    if /i "!_arg!"=="--data-dir" set "_PENDING_DDIR=1"
+    if /i "!_arg:~0,11!"=="--data-dir=" set "LTX_APP_DATA_DIR=!_arg:~11!"
+)
 shift
 goto parse_args
 :args_done

@@ -3,25 +3,32 @@ REM Launch LTX Desktop on Windows. Mirrors launch.sh: verifies Node.js + uv +
 REM pnpm, runs first-time setup if needed, then starts `pnpm dev`.
 REM
 REM Usage:
-REM   launch.bat                              -- API-only, default data location
-REM   launch.bat --local                      -- local models, default location
-REM   launch.bat --local --cn                 -- local models, China mirror
-REM   launch.bat --local --data-dir=F:\LTX   -- local models, custom location
+REM   launch.bat                                    -- API-only, default data location
+REM   launch.bat --local                            -- local models, default location
+REM   launch.bat --local --cn                       -- local models, China mirror
+REM   launch.bat --local --data-dir F:\LTX_APP_DIR -- custom data dir (note: SPACE, not =)
 
 setlocal EnableDelayedExpansion
 
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
-REM Parse all flags via shift-based loop (reliable; avoids for-loop tokenization bugs)
+REM Parse all flags. Note: Windows batch treats '=' as arg separator,
+REM so --data-dir=F:\X gets split into two args. We handle both forms.
 REM API-only by default — pass --local to enable local model downloads.
 set "LTX_API_ONLY=1"
 :parse_args
 if "%~1"=="" goto args_done
 set "_arg=%~1"
-if /i "!_arg!"=="--local" set "LTX_API_ONLY=0"
-if /i "!_arg!"=="--cn" set "HF_ENDPOINT=https://hf-mirror.com"
-if /i "!_arg:~0,11!"=="--data-dir=" set "LTX_APP_DATA_DIR=!_arg:~11!"
+if defined _PENDING_DDIR (
+    set "LTX_APP_DATA_DIR=!_arg!"
+    set "_PENDING_DDIR="
+) else (
+    if /i "!_arg!"=="--local" set "LTX_API_ONLY=0"
+    if /i "!_arg!"=="--cn" set "HF_ENDPOINT=https://hf-mirror.com"
+    if /i "!_arg!"=="--data-dir" set "_PENDING_DDIR=1"
+    if /i "!_arg:~0,11!"=="--data-dir=" set "LTX_APP_DATA_DIR=!_arg:~11!"
+)
 shift
 goto parse_args
 :args_done

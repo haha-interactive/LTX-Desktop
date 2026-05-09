@@ -1,11 +1,16 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import type { Asset } from '../../types/project-model'
 import { addGenericAssetToProject, addVisualAssetToProject } from '../../lib/asset-copy'
 import { pathToFileUrl } from '../../lib/file-url'
+import { logger } from '../../lib/logger'
 import { useEditorActions } from './editor-store'
 
 interface UseEditorMediaImportParams {
   currentProjectId: string | null
+}
+
+function makeAssetId(): string {
+  return `asset-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
 }
 
 export function useEditorMediaImport(params: UseEditorMediaImportParams) {
@@ -61,7 +66,7 @@ export function useEditorMediaImport(params: UseEditorMediaImportParams) {
       }
 
       const asset: Asset = {
-        id: `asset-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        id: makeAssetId(),
         type: isVideo ? 'video' : isAudio ? 'audio' : 'image',
         path: persistentPath,
         bigThumbnailPath,
@@ -81,6 +86,51 @@ export function useEditorMediaImport(params: UseEditorMediaImportParams) {
       fileInputRef.current.value = ''
     }
   }, [addAssetToEditor, currentProjectId, getMediaDuration])
+
+  const handleImportTakeFolder = useCallback(async () => {
+    if (!currentProjectId) return
+    let result
+    try {
+      result = await window.electronAPI.pickAndLoadTakeFolder({ projectId: currentProjectId })
+    } catch (err) {
+      logger.warn(`Take folder import IPC failed: ${err}`)
+      alert(`Could not open take folder: ${err instanceof Error ? err.message : String(err)}`)
+      return
+    }
+    if (!result.success) {
+      if (result.error === 'cancelled') return
+      logger.warn(`Take folder import failed: ${result.error}`)
+      alert(`Could not import take folder:\n${result.error}`)
+      return
+    }
+    const active = result.takes[result.activeTakeIndex]
+    if (!active) {
+      alert('Take folder import returned no active take')
+      return
+    }
+    const asset: Asset = {
+      id: makeAssetId(),
+      type: 'video',
+      path: active.path,
+      bigThumbnailPath: active.bigThumbnailPath,
+      smallThumbnailPath: active.smallThumbnailPath,
+      width: active.width,
+      height: active.height,
+      prompt: `Imported takes: ${result.displayName}`,
+      resolution: 'imported',
+      duration: result.duration,
+      takes: result.takes,
+      activeTakeIndex: result.activeTakeIndex,
+      createdAt: Date.now(),
+    }
+    addAssetToEditor(asset)
+  }, [addAssetToEditor, currentProjectId])
+
+  useEffect(() => {
+    const listener = () => { void handleImportTakeFolder() }
+    window.addEventListener('import-takes-folder', listener)
+    return () => window.removeEventListener('import-takes-folder', listener)
+  }, [handleImportTakeFolder])
 
   return {
     fileInputRef,

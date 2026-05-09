@@ -60,6 +60,7 @@ export function useBuildMenuDefinitions(p: MenuDepsParams): MenuDefinition[] {
         },
         { id: 'sep-0', label: '', separator: true },
         { id: 'import-media', label: 'Import Media...', shortcut: 'Ctrl+I', action: () => p.fileInputRef.current?.click() },
+        { id: 'import-takes-folder', label: 'Import Takes Folder...', shortcut: 'Ctrl+Shift+I', action: () => window.dispatchEvent(new CustomEvent('import-takes-folder')) },
         { id: 'import-timeline', label: 'Import Timeline (XML)...', action: () => actions.openImportTimelineModal() },
         { id: 'import-srt', label: 'Import Subtitles (SRT)...', action: () => p.subtitleFileInputRef.current?.click() },
         { id: 'sep-1', label: '', separator: true },

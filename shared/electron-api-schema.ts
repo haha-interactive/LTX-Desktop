@@ -201,6 +201,42 @@ export const electronAPISchemas = {
     output: ipcResult({ path: z.string() }),
   },
 
+  // Custom takes directory
+  pickAndLoadTakeFolder: {
+    input: z.object({ projectId: z.string() }),
+    output: ipcResult({
+      sourceFolder: z.string(),
+      displayName: z.string(),
+      duration: z.number(),
+      activeTakeIndex: z.number(),
+      takes: z.array(z.object({
+        path: z.string(),
+        bigThumbnailPath: z.string(),
+        smallThumbnailPath: z.string(),
+        width: z.number(),
+        height: z.number(),
+        createdAt: z.number(),
+      })),
+    }),
+  },
+  loadTakeFolder: {
+    input: z.object({ folderPath: z.string(), projectId: z.string() }),
+    output: ipcResult({
+      sourceFolder: z.string(),
+      displayName: z.string(),
+      duration: z.number(),
+      activeTakeIndex: z.number(),
+      takes: z.array(z.object({
+        path: z.string(),
+        bigThumbnailPath: z.string(),
+        smallThumbnailPath: z.string(),
+        width: z.number(),
+        height: z.number(),
+        createdAt: z.number(),
+      })),
+    }),
+  },
+
   // File dialogs & save
   showSaveDialog: {
     input: z.object({

@@ -15,19 +15,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not defined HF_ENDPOINT (
-    echo %* | find /i "--cn" >nul 2>nul && set "HF_ENDPOINT=https://hf-mirror.com"
-)
+REM Parse all flags via shift-based loop (reliable; avoids for-loop tokenization bugs)
+:parse_args
+if "%~1"=="" goto args_done
+set "_arg=%~1"
+if /i "!_arg!"=="--cn" set "HF_ENDPOINT=https://hf-mirror.com"
+if /i "!_arg:~0,11!"=="--data-dir=" set "LTX_APP_DATA_DIR=!_arg:~11!"
+shift
+goto parse_args
+:args_done
+
 if not defined HF_ENDPOINT set "HF_ENDPOINT=https://huggingface.co"
 
-REM Parse --data-dir=<path> if provided (string substitution method)
-set "_args=%*"
-if "!_args:--data-dir=!" neq "!_args!" (
-    for /f "tokens=* delims=--data-dir=" %%z in ("!_args!") do (
-        set "_remainder=%%z"
-        for /f "tokens=1" %%d in ("!_remainder!") do set "LTX_APP_DATA_DIR=%%d"
-    )
-)
 if defined LTX_APP_DATA_DIR (
     echo [...] App data directory: !LTX_APP_DATA_DIR!
     if not exist "!LTX_APP_DATA_DIR!" mkdir "!LTX_APP_DATA_DIR!"

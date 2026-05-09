@@ -15,7 +15,10 @@ if errorlevel 1 (
 )
 
 set "ARGS="
-echo %* | find /i "--cn" >nul 2>nul && set "ARGS=--cn"
+if not defined HF_ENDPOINT (
+    echo %* | find /i "--cn" >nul 2>nul && set "HF_ENDPOINT=https://hf-mirror.com"
+)
+if not defined HF_ENDPOINT set "HF_ENDPOINT=https://huggingface.co"
 
-uv run --directory "%SCRIPT_DIR%backend" python "%SCRIPT_DIR%scripts\download_models.py" !ARGS!
+uv run --directory "%SCRIPT_DIR%backend" python "%SCRIPT_DIR%scripts\download_models.py"
 endlocal

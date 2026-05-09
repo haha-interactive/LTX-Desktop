@@ -1,6 +1,5 @@
 """Download LTX models for local generation. Run via download.bat."""
 
-import argparse
 import hashlib
 import json
 import os
@@ -74,7 +73,9 @@ def download_file(repo_id: str, filename: str, dest_name: str) -> None:
     if dest.exists():
         print(f"[OK] Already exists: {dest_name} — skipping")
         return
+    hf_endpoint = os.environ.get("HF_ENDPOINT", "https://huggingface.co")
     print(f"[...] Downloading {filename} from {repo_id}")
+    print(f"     (via {hf_endpoint})")
     hf_hub_download(repo_id=repo_id, filename=filename, local_dir=MODELS_DIR, local_dir_use_symlinks=False)
     verify_against_official(repo_id, filename, dest)
     print(f"[OK] {dest_name}")
@@ -85,21 +86,18 @@ def download_snapshot(repo_id: str, dest_name: str) -> None:
     if dest.exists():
         print(f"[OK] Already exists: {dest_name} — skipping")
         return
+    hf_endpoint = os.environ.get("HF_ENDPOINT", "https://huggingface.co")
     print(f"[...] Downloading snapshot {repo_id} → {dest_name}")
+    print(f"     (via {hf_endpoint})")
     snapshot_download(repo_id=repo_id, local_dir=dest, local_dir_use_symlinks=False)
     print(f"[OK] {dest_name} (snapshot — checksum skipped)")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cn", action="store_true", help="Use hf-mirror.com (China)")
-    args = parser.parse_args()
-
-    if args.cn:
-        os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
-        print("[...] Using mirror: https://hf-mirror.com")
-    else:
-        print("[...] Using: https://huggingface.co")
+    hf_endpoint = os.environ.get("HF_ENDPOINT", "https://huggingface.co")
+    is_mirror = "hf-mirror" in hf_endpoint
+    mirror_label = "[China Mirror]" if is_mirror else "[Official HuggingFace]"
+    print(f"[...] HF_ENDPOINT: {hf_endpoint} {mirror_label}")
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     print(f"[...] Models directory: {MODELS_DIR}\n")

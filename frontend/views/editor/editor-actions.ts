@@ -1270,7 +1270,14 @@ export function setClipColorLabel(state: EditorState, clipId: string, colorLabel
 }
 
 export function setClipTakeIndex(state: EditorState, clipId: string, takeIndex?: number): EditorState {
-  return updateClip(state, clipId, { takeIndex })
+  const target = selectClips(state).find(c => c.id === clipId)
+  if (!target) return state
+  const linkedIds = new Set(target.linkedClipIds ?? [])
+  return mapClips(state, clip => {
+    if (clip.id === clipId) return { ...clip, takeIndex }
+    if (linkedIds.has(clip.id) && clip.assetId === target.assetId) return { ...clip, takeIndex }
+    return clip
+  })
 }
 
 export function stepClipTake(state: EditorState, clipId: string, direction: 'prev' | 'next'): EditorState {

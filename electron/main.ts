@@ -7,6 +7,7 @@ import { registerAppHandlers } from './ipc/app-handlers'
 import { registerFileHandlers } from './ipc/file-handlers'
 import { registerLogHandlers } from './ipc/log-handlers'
 import { registerVideoProcessingHandlers } from './ipc/video-processing-handlers'
+import { registerTakeHandlers } from './ipc/take-handlers'
 import { logger } from './logger'
 import { initSessionLog } from './logging-management'
 import { stopPythonBackend } from './python-backend'
@@ -35,6 +36,7 @@ if (!gotLock) {
   registerLogHandlers()
   registerExportHandlers()
   registerVideoProcessingHandlers()
+  registerTakeHandlers()
 
   app.on('second-instance', () => {
     const mainWindow = getMainWindow()

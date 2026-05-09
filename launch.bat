@@ -1,6 +1,12 @@
 @echo off
 REM Launch LTX Desktop on Windows. Mirrors launch.sh: verifies Node.js + uv +
 REM pnpm, runs first-time setup if needed, then starts `pnpm dev`.
+REM
+REM Usage:
+REM   launch.bat                              -- API-only, default data location
+REM   launch.bat --local                      -- local models, default location
+REM   launch.bat --local --cn                 -- local models, China mirror
+REM   launch.bat --local --data-dir=F:\LTX   -- local models, custom location
 
 setlocal EnableDelayedExpansion
 
@@ -11,6 +17,15 @@ REM API-only by default — pass --local to enable local model downloads.
 set "LTX_API_ONLY=1"
 echo %* | find /i "--local" >nul 2>nul && set "LTX_API_ONLY=0"
 echo %* | find /i "--cn" >nul 2>nul && set "HF_ENDPOINT=https://hf-mirror.com"
+
+REM Parse --data-dir=<path> if provided
+for %%a in (%*) do (
+    echo %%~a | find /i "--data-dir=" >nul 2>nul && for /f "tokens=2 delims==" %%b in ("%%~a") do set "LTX_APP_DATA_DIR=%%~b"
+)
+if defined LTX_APP_DATA_DIR (
+    echo [...] App data directory: !LTX_APP_DATA_DIR!
+    if not exist "!LTX_APP_DATA_DIR!" mkdir "!LTX_APP_DATA_DIR!"
+)
 
 REM ---------- Node.js ----------
 where node >nul 2>nul

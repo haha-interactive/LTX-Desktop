@@ -5,6 +5,9 @@ import os from 'os'
 export const APP_FOLDER_NAME = 'LTXDesktop'
 
 function resolveUserDataPath(): string {
+  if (process.env.LTX_APP_DATA_DIR) {
+    return process.env.LTX_APP_DATA_DIR
+  }
   if (process.platform === 'win32') {
     const localAppData = process.env.LOCALAPPDATA
       || path.join(os.homedir(), 'AppData', 'Local')

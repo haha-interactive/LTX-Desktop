@@ -121,6 +121,7 @@ export function useEditorMediaImport(params: UseEditorMediaImportParams) {
       duration: result.duration,
       takes: result.takes,
       activeTakeIndex: result.activeTakeIndex,
+      sourceFolder: result.sourceFolder,
       createdAt: Date.now(),
     }
     addAssetToEditor(asset)

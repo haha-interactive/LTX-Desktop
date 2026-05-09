@@ -137,6 +137,7 @@ export function useTakeFolderExport({ projectId }: UseTakeFolderExportParams) {
       duration: commitResult.duration,
       takes: commitResult.takes,
       activeTakeIndex: commitResult.activeTakeIndex,
+      sourceFolder: commitResult.sourceFolder,
       createdAt: Date.now(),
     }
 

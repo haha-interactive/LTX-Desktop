@@ -44,7 +44,7 @@ export const effectTypeValues = [
 export const effectMaskShapeValues = ['rectangle', 'ellipse'] as const
 export const letterboxAspectRatioValues = ['2.35:1', '2.39:1', '2.76:1', '1.85:1', '4:3', 'custom'] as const
 export const viewTypeValues = ['home', 'project'] as const
-export const projectTabValues = ['gen-space', 'video-editor'] as const
+export const projectTabValues = ['gen-space', 'video-editor', 'takes'] as const
 
 export const transitionTypeSchema = z.enum(transitionTypeValues)
 export const viewTypeSchema = z.enum(viewTypeValues)
@@ -80,6 +80,8 @@ export const assetTakeSchema = z.object({
   height: z.number().optional(),
   createdAt: z.number(),
   label: z.string().optional(),
+  prompt: z.string().optional(),
+  platform: z.string().optional(),
 })
 
 export const subtitleStyleSchema = z.object({
@@ -279,6 +281,7 @@ export const assetSchema = z.object({
   takes: z.array(assetTakeSchema).optional(),
   activeTakeIndex: z.number().optional(),
   colorLabel: z.string().optional(),
+  sourceFolder: z.string().optional(),
 })
 
 export const timelineClipSchema = z.object({

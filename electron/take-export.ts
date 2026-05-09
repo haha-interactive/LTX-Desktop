@@ -33,7 +33,7 @@ function projectTakesRoot(projectId: string): string {
   return path.join(getProjectAssetsPath(), projectId, TAKES_DIR_NAME)
 }
 
-function probeDurationSeconds(videoPath: string): number {
+export function probeDurationSeconds(videoPath: string): number {
   const ffmpegPath = findFfmpegPath()
   if (!ffmpegPath) throw new Error('ffmpeg not found')
   const result = spawnSync(ffmpegPath, ['-hide_banner', '-i', videoPath], {
@@ -50,7 +50,7 @@ function probeDurationSeconds(videoPath: string): number {
   return seconds
 }
 
-function readManifestSafe(folderPath: string): TakeManifest | null {
+export function readManifestSafe(folderPath: string): TakeManifest | null {
   const manifestPath = path.join(folderPath, MANIFEST_FILENAME)
   if (!fs.existsSync(manifestPath)) return null
   try {
@@ -63,7 +63,7 @@ function readManifestSafe(folderPath: string): TakeManifest | null {
   }
 }
 
-function writeManifestAtomic(folderPath: string, manifest: TakeManifest): void {
+export function writeManifestAtomic(folderPath: string, manifest: TakeManifest): void {
   const validated = takeManifestSchema.parse(manifest)
   const manifestPath = path.join(folderPath, MANIFEST_FILENAME)
   const tmpPath = path.join(folderPath, `${MANIFEST_FILENAME}.tmp-${process.pid}-${Date.now()}`)

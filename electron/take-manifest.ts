@@ -41,6 +41,8 @@ export const DURATION_EPSILON_SECONDS = 1 / 24
 const takeEntrySchema = z.object({
   file: z.string().min(1),
   label: z.string().optional(),
+  prompt: z.string().optional(),
+  platform: z.string().optional(),
 })
 
 export const takeManifestSchema = z.object({
@@ -60,6 +62,8 @@ export interface ResolvedTake {
   height: number
   createdAt: number
   label?: string
+  prompt?: string
+  platform?: string
 }
 
 export interface TakeFolderResult {
@@ -202,6 +206,8 @@ export function loadTakeFolder(folderPath: string, projectId: string): TakeFolde
       height: probe.height,
       createdAt: now,
       ...(entry.label ? { label: entry.label } : {}),
+      ...(entry.prompt ? { prompt: entry.prompt } : {}),
+      ...(entry.platform ? { platform: entry.platform } : {}),
     }
   })
 

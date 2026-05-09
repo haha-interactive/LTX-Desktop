@@ -19,7 +19,7 @@ import {
   selectTracks,
 } from './editor-selectors'
 import { useEditorActions, useEditorStore } from './editor-store'
-import { getActiveTakeLabel } from './clip-display-name'
+import { getActiveTakeLabel, getActiveTakePrompt, getActiveTakePlatform } from './clip-display-name'
 
 interface ClipPropertiesPanelProps {
   onCreateVideoFromImage: (clip: TimelineClip) => void
@@ -138,6 +138,8 @@ export function ClipPropertiesPanel(props: ClipPropertiesPanelProps) {
           filePath = liveAsset.takes[idx].path
         }
         const activeTakeLabel = getActiveTakeLabel(selectedClip, liveAsset)
+        const activeTakePrompt = getActiveTakePrompt(selectedClip, liveAsset)
+        const activeTakePlatform = getActiveTakePlatform(selectedClip, liveAsset)
 
         // Determine if this is an upscaled take (take index > 0 and resolution is higher than original)
         const originalRes = liveAsset?.generationParams?.resolution
@@ -195,6 +197,18 @@ export function ClipPropertiesPanel(props: ClipPropertiesPanelProps) {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-zinc-400">Original Gen</span>
                     <span className="text-xs text-zinc-500">{originalRes}</span>
+                  </div>
+                )}
+                {activeTakePlatform && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-400">Platform</span>
+                    <span className="text-xs text-zinc-300">{activeTakePlatform}</span>
+                  </div>
+                )}
+                {activeTakePrompt && (
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-400">Take prompt</span>
+                    <p className="text-[11px] text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">{activeTakePrompt}</p>
                   </div>
                 )}
               </div>

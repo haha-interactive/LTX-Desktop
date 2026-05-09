@@ -2500,15 +2500,17 @@ export function VideoEditorTimelineEditingPanel(props: VideoEditorTimelineEditin
                           const liveAsset = getLiveAsset(clip)
                           if (!liveAsset) return null
                           let thumbPath: string | undefined = liveAsset.smallThumbnailPath
+                          let cacheBust: number | undefined
                           const takeIdx = clip.takeIndex ?? liveAsset.activeTakeIndex
                           if (liveAsset.takes && liveAsset.takes.length > 0 && takeIdx !== undefined) {
                             const idx = Math.max(0, Math.min(takeIdx, liveAsset.takes.length - 1))
                             thumbPath = liveAsset.takes[idx].smallThumbnailPath
+                            cacheBust = liveAsset.takes[idx].createdAt
                           }
                           return thumbPath ? (
                             <img
-                              key={`thumb-${clip.id}-${clip.takeIndex ?? 'default'}`}
-                              src={pathToFileUrl(thumbPath)}
+                              key={`thumb-${clip.id}-${clip.takeIndex ?? 'default'}-${cacheBust ?? ''}`}
+                              src={`${pathToFileUrl(thumbPath)}${cacheBust ? `?v=${cacheBust}` : ''}`}
                               alt=""
                               className="h-8 aspect-video object-cover rounded"
                             />

@@ -323,3 +323,96 @@ export function probeVideoDurationSeconds(srcVideoPath: string): number {
   }
   return probeDurationSeconds(resolved)
 }
+
+// ─── Folder inspection ────────────────────────────────────────────────────────
+
+export interface InspectedTake {
+  file: string
+  label: string | undefined
+  prompt: string | undefined
+  platform: string | undefined
+  fileExists: boolean
+  duration: number | null
+  durationMismatch: boolean
+}
+
+export interface TakeFolderInspection {
+  folderPath: string
+  displayName: string
+  baseDuration: number | null
+  takes: InspectedTake[]
+  issues: {
+    missingFiles: string[]
+    missingLabels: string[]
+    durationMismatches: Array<{ file: string; duration: number }>
+  }
+}
+
+export function inspectTakeFolder(folderPath: string): TakeFolderInspection {
+  const folderResolved = path.resolve(folderPath)
+  if (!fs.existsSync(folderResolved) || !fs.statSync(folderResolved).isDirectory()) {
+    throw new Error(`Take folder not found: ${folderResolved}`)
+  }
+  const manifest = readManifestSafe(folderResolved)
+  if (!manifest) throw new Error(`No valid takes.json in ${folderResolved}`)
+
+  const displayName = manifest.name?.trim() || path.basename(folderResolved)
+  let baseDuration: number | null = null
+
+  const inspected: InspectedTake[] = manifest.takes.map((entry, idx) => {
+    const absPath = path.join(folderResolved, entry.file)
+    const fileExists = fs.existsSync(absPath) && fs.statSync(absPath).isFile()
+    let duration: number | null = null
+    if (fileExists) {
+      try { duration = probeDurationSeconds(absPath) } catch { /* ignore */ }
+    }
+    if (idx === 0 && duration !== null) baseDuration = duration
+    return {
+      file: entry.file,
+      label: entry.label,
+      prompt: entry.prompt,
+      platform: entry.platform,
+      fileExists,
+      duration,
+      durationMismatch: false,
+    }
+  })
+
+  for (const t of inspected) {
+    if (t.duration !== null && baseDuration !== null) {
+      t.durationMismatch = Math.abs(t.duration - baseDuration) > DURATION_EPSILON_SECONDS
+    }
+  }
+
+  return {
+    folderPath: folderResolved,
+    displayName,
+    baseDuration,
+    takes: inspected,
+    issues: {
+      missingFiles: inspected.filter(t => !t.fileExists).map(t => t.file),
+      missingLabels: inspected.filter(t => !t.label?.trim()).map(t => t.file),
+      durationMismatches: inspected
+        .filter(t => t.durationMismatch && t.duration !== null)
+        .map(t => ({ file: t.file, duration: t.duration as number })),
+    },
+  }
+}
+
+export function patchTakeManifestLabels(input: {
+  folderPath: string
+  patches: { file: string; label: string }[]
+}): void {
+  const folderResolved = path.resolve(input.folderPath)
+  const manifest = readManifestSafe(folderResolved)
+  if (!manifest) throw new Error(`Manifest missing in ${folderResolved}`)
+  const patchMap = new Map(input.patches.map(p => [p.file, p.label.trim()]))
+  const nextManifest: TakeManifest = {
+    ...manifest,
+    takes: manifest.takes.map(entry => ({
+      ...entry,
+      ...(patchMap.has(entry.file) ? { label: patchMap.get(entry.file)! } : {}),
+    })),
+  }
+  writeManifestAtomic(folderResolved, nextManifest)
+}

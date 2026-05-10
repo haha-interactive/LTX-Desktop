@@ -522,6 +522,41 @@ export const electronAPISchemas = {
     }),
   },
 
+  // Inspect a take folder: check file existence, probe durations, flag missing
+  // labels — without running the full loadTakeFolder (no thumbnail generation).
+  inspectTakeFolder: {
+    input: z.object({ folderPath: z.string() }),
+    output: ipcResult({
+      folderPath: z.string(),
+      displayName: z.string(),
+      baseDuration: z.number().nullable(),
+      takes: z.array(z.object({
+        file: z.string(),
+        label: z.string().optional(),
+        prompt: z.string().optional(),
+        platform: z.string().optional(),
+        fileExists: z.boolean(),
+        duration: z.number().nullable(),
+        durationMismatch: z.boolean(),
+      })),
+      issues: z.object({
+        missingFiles: z.array(z.string()),
+        missingLabels: z.array(z.string()),
+        durationMismatches: z.array(z.object({ file: z.string(), duration: z.number() })),
+      }),
+    }),
+  },
+
+  // Write label patches to a take folder's manifest without triggering
+  // loadTakeFolder (no ffmpeg, no thumbnail regen). Call before loadTakeFolder.
+  patchTakeManifestLabels: {
+    input: z.object({
+      folderPath: z.string(),
+      patches: z.array(z.object({ file: z.string(), label: z.string() })),
+    }),
+    output: ipcResult({}),
+  },
+
   // Probe the duration of an arbitrary video file. Used by the Add Take
   // dialog to decide whether to offer the trim UI when the source is longer
   // than the folder's base duration.

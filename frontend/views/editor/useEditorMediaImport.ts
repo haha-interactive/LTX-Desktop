@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import type { Asset } from '../../types/project-model'
 import { addGenericAssetToProject, addVisualAssetToProject } from '../../lib/asset-copy'
 import { pathToFileUrl } from '../../lib/file-url'
-import { logger } from '../../lib/logger'
+// import { logger } from '../../lib/logger'  // used by handleImportTakeFolder (now in Takes tab)
 import { useEditorActions } from './editor-store'
 
 interface UseEditorMediaImportParams {
@@ -87,51 +87,16 @@ export function useEditorMediaImport(params: UseEditorMediaImportParams) {
     }
   }, [addAssetToEditor, currentProjectId, getMediaDuration])
 
-  const handleImportTakeFolder = useCallback(async () => {
-    if (!currentProjectId) return
-    let result
-    try {
-      result = await window.electronAPI.pickAndLoadTakeFolder({ projectId: currentProjectId })
-    } catch (err) {
-      logger.warn(`Take folder import IPC failed: ${err}`)
-      alert(`Could not open take folder: ${err instanceof Error ? err.message : String(err)}`)
-      return
-    }
-    if (!result.success) {
-      if (result.error === 'cancelled') return
-      logger.warn(`Take folder import failed: ${result.error}`)
-      alert(`Could not import take folder:\n${result.error}`)
-      return
-    }
-    const active = result.takes[result.activeTakeIndex]
-    if (!active) {
-      alert('Take folder import returned no active take')
-      return
-    }
-    const asset: Asset = {
-      id: makeAssetId(),
-      type: 'video',
-      path: active.path,
-      bigThumbnailPath: active.bigThumbnailPath,
-      smallThumbnailPath: active.smallThumbnailPath,
-      width: active.width,
-      height: active.height,
-      prompt: `Imported takes: ${result.displayName}`,
-      resolution: 'imported',
-      duration: result.duration,
-      takes: result.takes,
-      activeTakeIndex: result.activeTakeIndex,
-      sourceFolder: result.sourceFolder,
-      createdAt: Date.now(),
-    }
-    addAssetToEditor(asset)
-  }, [addAssetToEditor, currentProjectId])
+  // handleImportTakeFolder moved to the Takes tab (useTakesTabData.importTakeFolder).
+  // Kept here as a reference but not connected to any UI entry point.
+  // const handleImportTakeFolder = useCallback(async () => { ... })
 
-  useEffect(() => {
-    const listener = () => { void handleImportTakeFolder() }
-    window.addEventListener('import-takes-folder', listener)
-    return () => window.removeEventListener('import-takes-folder', listener)
-  }, [handleImportTakeFolder])
+  // import-takes-folder entry point moved to the Takes tab.
+  // useEffect(() => {
+  //   const listener = () => { void handleImportTakeFolder() }
+  //   window.addEventListener('import-takes-folder', listener)
+  //   return () => window.removeEventListener('import-takes-folder', listener)
+  // }, [handleImportTakeFolder])
 
   return {
     fileInputRef,

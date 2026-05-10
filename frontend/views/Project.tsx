@@ -97,9 +97,9 @@ export function Project() {
   
   const tabs: { id: ProjectTab; label: string; icon: React.ReactNode }[] = [
     { id: 'gen-space', label: 'Gen Space', icon: <Sparkles className="h-4 w-4" /> },
-    { id: 'video-editor', label: 'Video Editor', icon: <Film className="h-4 w-4" /> },
     { id: 'takes', label: 'Takes', icon: <Layers className="h-4 w-4" /> },
     { id: 'storyboard', label: 'Storyboard', icon: <Clapperboard className="h-4 w-4" /> },
+    { id: 'video-editor', label: 'Video Editor', icon: <Film className="h-4 w-4" /> },
   ]
   const shouldShowAssetMetadataMigrationProgressScreen = assetMetadataMigrationProgress.running
     || (upgradePassProjectId !== activeProjectId && needsAssetMetadataMigration)

@@ -69,8 +69,33 @@ function projectAssetsForFolder(project: Project | null, folderPath: string, pro
   return project.assets.filter(asset => effectiveSourceFolder(asset, projectId) === folderPath)
 }
 
+function makeAssetId(): string {
+  return `asset-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
+
+export interface InspectedTakeEntry {
+  file: string
+  label?: string
+  fileExists: boolean
+  duration: number | null
+  durationMismatch: boolean
+}
+
+export interface TakeFolderInspectionResult {
+  folderPath: string
+  displayName: string
+  baseDuration: number | null
+  takes: InspectedTakeEntry[]
+  issues: {
+    missingFiles: string[]
+    missingLabels: string[]
+    durationMismatches: Array<{ file: string; duration: number }>
+  }
+}
+
 export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
-  const { activeProject, updateAsset } = useProjects()
+  const { activeProject, updateAsset, setProject } = useProjects()
+  const [importInspections, setImportInspections] = useState<TakeFolderInspectionResult[] | null>(null)
 
   const [folders, setFolders] = useState<TakeFolderListEntry[]>([])
   const [loadingList, setLoadingList] = useState<boolean>(false)
@@ -328,6 +353,108 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
   useEffect(() => { if (listError) logger.warn(`Takes-tab list error: ${listError}`) }, [listError])
   useEffect(() => { if (detailError) logger.warn(`Takes-tab detail error: ${detailError}`) }, [detailError])
 
+  // ─── Multi-folder import flow ────────────────────────────────────────────────
+
+  const startImport = useCallback(async () => {
+    const api = window.electronAPI
+    if (!api) return
+    const folders = await api.showOpenDirectoryDialog({ title: 'Select take folder(s) to import' })
+    // Note: showOpenDirectoryDialog returns a single string; for multi-select we'd need
+    // showOpenFileDialog with openDirectory+multiSelections. Current IPC only picks one.
+    // Multi-select can be added later; for now pick one folder at a time.
+    if (!folders) return
+    const folderPath = folders  // string
+    const result = await api.inspectTakeFolder({ folderPath })
+    if (!result.success) {
+      logger.warn(`Inspect failed for ${folderPath}: ${result.error}`)
+      return
+    }
+    const inspection: TakeFolderInspectionResult = {
+      folderPath: result.folderPath,
+      displayName: result.displayName,
+      baseDuration: result.baseDuration,
+      takes: result.takes,
+      issues: result.issues,
+    }
+    const hasAnyIssue = result.issues.missingFiles.length > 0
+      || result.issues.missingLabels.length > 0
+      || result.issues.durationMismatches.length > 0
+    if (!hasAnyIssue) {
+      // No issues — import directly.
+      void finishImport([{ inspection, labelPatches: [] }])
+    } else {
+      setImportInspections([inspection])
+    }
+  }, [])  // finishImport added below via ref pattern
+
+  const finishImport = useCallback(async (
+    items: Array<{ inspection: TakeFolderInspectionResult; labelPatches: { file: string; label: string }[] }>,
+  ) => {
+    const api = window.electronAPI
+    if (!api || !activeProject) return
+    const toasts: string[] = []
+    for (const { inspection, labelPatches } of items) {
+      const { folderPath, displayName } = inspection
+      try {
+        // 1. Patch labels in one manifest write (no thumbnail regen).
+        if (labelPatches.length > 0) {
+          const patchResult = await api.patchTakeManifestLabels({ folderPath, patches: labelPatches })
+          if (!patchResult.success) throw new Error(patchResult.error)
+        }
+        // 2. Full import — probes durations, generates thumbnails, approves path.
+        const result = await api.loadTakeFolder({ folderPath, projectId })
+        if (!result.success) throw new Error(result.error)
+        const refreshed: TakeFolderResultLike = {
+          sourceFolder: result.sourceFolder,
+          displayName: result.displayName,
+          duration: result.duration,
+          activeTakeIndex: result.activeTakeIndex,
+          takes: toTakeArray(result.takes),
+        }
+        applyRefreshed(refreshed)
+        // 3. Add as a project Asset if not already linked.
+        const already = activeProject.assets.some(
+          a => effectiveSourceFolder(a, projectId) === result.sourceFolder,
+        )
+        if (!already && activeProject) {
+          const active = result.takes[result.activeTakeIndex]
+          if (active) {
+            const newAsset: Asset = {
+              id: makeAssetId(),
+              type: 'video',
+              path: active.path,
+              bigThumbnailPath: active.bigThumbnailPath,
+              smallThumbnailPath: active.smallThumbnailPath,
+              width: active.width,
+              height: active.height,
+              prompt: `Imported takes: ${result.displayName}`,
+              resolution: 'imported',
+              duration: result.duration,
+              takes: result.takes,
+              activeTakeIndex: result.activeTakeIndex,
+              sourceFolder: result.sourceFolder,
+              createdAt: Date.now(),
+            }
+            setProject(projectId, {
+              ...activeProject,
+              assets: [newAsset, ...activeProject.assets],
+              updatedAt: Date.now(),
+            })
+          }
+        }
+        toasts.push(`"${displayName}" imported`)
+      } catch (err) {
+        logger.error(`Import failed for ${displayName}: ${err}`)
+        toasts.push(`"${displayName}" failed: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+    setImportInspections(null)
+    void refreshList()
+    return toasts
+  }, [activeProject, applyRefreshed, projectId, refreshList, setProject])
+
+  const cancelImport = useCallback(() => setImportInspections(null), [])
+
   return {
     folders: combinedFolders,
     loadingList,
@@ -348,5 +475,10 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
     setDefaultTake,
     addTake,
     renameFolder,
+
+    importInspections,
+    startImport,
+    finishImport,
+    cancelImport,
   }
 }

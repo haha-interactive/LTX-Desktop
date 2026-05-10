@@ -1,6 +1,8 @@
 import { logger } from '../logger'
 import {
   addTakeToFolder,
+  inspectTakeFolder,
+  patchTakeManifestLabels,
   probeVideoDurationSeconds,
   renameTakeFolder,
   replaceTakeVideo,
@@ -70,6 +72,26 @@ export function registerTakeEditHandlers(): void {
       return { success: true, durationSeconds }
     } catch (error) {
       logger.error(`Error probing video duration: ${error}`)
+      return { success: false, error: errMessage(error) }
+    }
+  })
+
+  handle('inspectTakeFolder', ({ folderPath }) => {
+    try {
+      const result = inspectTakeFolder(folderPath)
+      return { success: true, ...result }
+    } catch (error) {
+      logger.error(`Error inspecting take folder: ${error}`)
+      return { success: false, error: errMessage(error) }
+    }
+  })
+
+  handle('patchTakeManifestLabels', (input) => {
+    try {
+      patchTakeManifestLabels(input)
+      return { success: true }
+    } catch (error) {
+      logger.error(`Error patching take manifest labels: ${error}`)
       return { success: false, error: errMessage(error) }
     }
   })

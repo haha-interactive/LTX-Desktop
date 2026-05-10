@@ -184,7 +184,7 @@ function activeTrackStartTime(state: EditorState, trackIndex: number): number {
     .reduce((max, clip) => Math.max(max, clip.startTime + clip.duration), 0)
 }
 
-function createTimelineClipFromAsset(asset: Asset, trackIndex: number, startTime: number): TimelineClip {
+export function createTimelineClipFromAsset(asset: Asset, trackIndex: number, startTime: number): TimelineClip {
   return {
     id: makeId('clip'),
     assetId: asset.id,

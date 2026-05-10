@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Sparkles, Film, Layers } from 'lucide-react'
+import { ArrowLeft, Sparkles, Film, Layers, Clapperboard } from 'lucide-react'
 import { useProjects } from '../contexts/ProjectContext'
 import { useView } from '../contexts/ViewContext'
 import { LtxLogo } from '../components/LtxLogo'
@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button'
 import { GenSpace } from './GenSpace'
 import { VideoEditor } from './VideoEditor'
 import { TakesTab } from './takes/TakesTab'
+import { StoryboardTab } from './storyboard/StoryboardTab'
 import type { ProjectTab } from '../types/project-model'
 import {
   hasVisualAssetMetadataForMigration,
@@ -96,6 +97,7 @@ export function Project() {
     { id: 'gen-space', label: 'Gen Space', icon: <Sparkles className="h-4 w-4" /> },
     { id: 'video-editor', label: 'Video Editor', icon: <Film className="h-4 w-4" /> },
     { id: 'takes', label: 'Takes', icon: <Layers className="h-4 w-4" /> },
+    { id: 'storyboard', label: 'Storyboard', icon: <Clapperboard className="h-4 w-4" /> },
   ]
   const shouldShowAssetMetadataMigrationProgressScreen = assetMetadataMigrationProgress.running
     || (upgradePassProjectId !== activeProjectId && needsAssetMetadataMigration)
@@ -164,7 +166,9 @@ export function Project() {
       </header>
       
       <main className="flex-1 overflow-hidden relative">
-        {currentTab === 'gen-space' ? (
+        {currentTab === 'storyboard' ? (
+          <StoryboardTab projectId={activeProject.id} />
+        ) : currentTab === 'gen-space' ? (
           <GenSpace />
         ) : currentTab === 'takes' ? (
           <TakesTab projectId={activeProject.id} />

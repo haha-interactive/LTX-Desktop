@@ -78,6 +78,10 @@ import { useTimelineDrag } from './useTimelineDrag'
 import { useEditorActions, useEditorStore } from './editor-store'
 import { getClipDisplayLabel } from './clip-display-name'
 import { SaveSelectionAsTakeToolbarButton } from '../../components/SaveSelectionAsTakeToolbarButton'
+import { useProjects } from '../../contexts/ProjectContext'
+import { readStoryboard, writeStoryboard } from '../../lib/storyboard-storage'
+import { storyboardItemsFromTimeline } from '../storyboard/storyboard-utils'
+import { Clapperboard } from 'lucide-react'
 
 // Custom scissors cursor SVG for the blade tool (white with dark outline for contrast)
 const SCISSORS_CURSOR_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='6' cy='6' r='3'/><path d='M8.12 8.12 12 12'/><path d='M20 4 8.12 15.88'/><circle cx='6' cy='18' r='3'/><path d='M14.8 14.8 20 20'/></svg>`
@@ -1215,6 +1219,27 @@ export function VideoEditorTimelineEditingPanel(props: VideoEditorTimelineEditin
     setTimelineContextMenu({ timelineId, x: e.clientX, y: e.clientY })
   }
 
+  const { setCurrentTab } = useProjects()
+  const handleViewInStoryboard = useCallback((timelineId: string) => {
+    if (!currentProjectId) return
+    const timeline = timelines.find(t => t.id === timelineId)
+    if (!timeline) return
+    const items = storyboardItemsFromTimeline(timeline)
+    if (items.length === 0) {
+      // eslint-disable-next-line no-alert
+      alert('This timeline has no video or image clips on V1.')
+      return
+    }
+    const existing = readStoryboard(currentProjectId)
+    if (existing.items.length > 0) {
+      // eslint-disable-next-line no-alert
+      const ok = confirm(`Replace the current storyboard (${existing.items.length} item${existing.items.length === 1 ? '' : 's'}) with this timeline?`)
+      if (!ok) return
+    }
+    writeStoryboard(currentProjectId, { version: 1, items })
+    setCurrentTab('storyboard')
+  }, [currentProjectId, setCurrentTab, timelines])
+
   useEffect(() => {
     const onExternalOpen = (event: Event) => {
       const custom = event as CustomEvent<{ timelineId: string; x: number; y: number }>
@@ -1477,6 +1502,16 @@ export function VideoEditorTimelineEditingPanel(props: VideoEditorTimelineEditin
               >
                 <Copy className="h-3 w-3" />
                 Duplicate
+              </button>
+              <button
+                onClick={() => {
+                  handleViewInStoryboard(timelineContextMenu.timelineId)
+                  setTimelineContextMenu(null)
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+              >
+                <Clapperboard className="h-3 w-3" />
+                View in Storyboard
               </button>
               <div className="h-px bg-zinc-700 my-0.5" />
               <button

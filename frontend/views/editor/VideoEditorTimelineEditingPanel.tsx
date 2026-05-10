@@ -78,6 +78,7 @@ import { useTimelineDrag } from './useTimelineDrag'
 import { useEditorActions, useEditorStore } from './editor-store'
 import { getClipDisplayLabel } from './clip-display-name'
 import { SaveSelectionAsTakeToolbarButton } from '../../components/SaveSelectionAsTakeToolbarButton'
+import { ExportClipFramesToolbarButton } from '../../components/ExportClipFramesToolbarButton'
 import { useProjects } from '../../contexts/ProjectContext'
 import { readStoryboard, writeStoryboard } from '../../lib/storyboard-storage'
 import { storyboardItemsFromTimeline } from '../storyboard/storyboard-utils'
@@ -3191,6 +3192,8 @@ export function VideoEditorTimelineEditingPanel(props: VideoEditorTimelineEditin
           </Button>
 
           <SaveSelectionAsTakeToolbarButton />
+
+          <ExportClipFramesToolbarButton />
 
 
           {/* Subtitle import/export */}

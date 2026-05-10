@@ -124,18 +124,62 @@ export function extractVideoFrameToFile({
       `ltx_frame_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`,
     )
 
-  const args: string[] = [
-    '-ss', String(Math.max(0, seekTime)),
+  const safeSeek = String(Math.max(0, seekTime))
+  const filterArgs = width ? ['-vf', `scale=${width}:-2`] : []
+  const qualityArgs = quality !== undefined ? ['-q:v', String(quality)] : []
+
+  // Fast path: input-seek (`-ss` before `-i`) — quick but can miss frames
+  // when seeking close to EOF if the last keyframe is well before duration.
+  const fastArgs: string[] = [
+    '-ss', safeSeek,
     '-i', videoPath,
-    ...(width ? ['-vf', `scale=${width}:-2`] : []),
+    ...filterArgs,
     '-frames:v', '1',
-    ...(quality !== undefined ? ['-q:v', String(quality)] : []),
+    ...qualityArgs,
     '-y',
     resolvedOutputPath,
   ]
 
-  logger.info(`[extract-frame] ${args.join(' ').slice(0, 300)}`)
-  runFfmpegSyncOrThrow(ffmpegPath, args, timeoutMs)
+  logger.info(`[extract-frame] ${fastArgs.join(' ').slice(0, 300)}`)
+  try {
+    runFfmpegSyncOrThrow(ffmpegPath, fastArgs, timeoutMs)
+  } catch (err) {
+    logger.warn(`[extract-frame] fast seek failed, will try accurate seek: ${err}`)
+  }
+
+  if (fs.existsSync(resolvedOutputPath)) return resolvedOutputPath
+
+  // Accurate fallback: output-seek (`-ss` after `-i`) — decodes from the
+  // start so it always lands on a real frame. Slower, but only runs when the
+  // fast path produced no output (typically end-of-file extractions).
+  const accurateArgs: string[] = [
+    '-i', videoPath,
+    '-ss', safeSeek,
+    ...filterArgs,
+    '-frames:v', '1',
+    ...qualityArgs,
+    '-y',
+    resolvedOutputPath,
+  ]
+  logger.info(`[extract-frame:accurate] ${accurateArgs.join(' ').slice(0, 300)}`)
+  runFfmpegSyncOrThrow(ffmpegPath, accurateArgs, timeoutMs)
+
+  if (fs.existsSync(resolvedOutputPath)) return resolvedOutputPath
+
+  // Last-resort fallback for end-of-file: grab the final ~0.5s and take its
+  // first frame. Handles cases where reported duration overshoots the last
+  // decodable frame by more than our epsilon.
+  const sseofArgs: string[] = [
+    '-sseof', '-0.5',
+    '-i', videoPath,
+    ...filterArgs,
+    '-frames:v', '1',
+    ...qualityArgs,
+    '-y',
+    resolvedOutputPath,
+  ]
+  logger.info(`[extract-frame:sseof] ${sseofArgs.join(' ').slice(0, 300)}`)
+  runFfmpegSyncOrThrow(ffmpegPath, sseofArgs, timeoutMs)
 
   if (!fs.existsSync(resolvedOutputPath)) {
     throw new Error('ffmpeg produced no output file')

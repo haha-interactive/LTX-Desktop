@@ -9,6 +9,7 @@ import { registerLogHandlers } from './ipc/log-handlers'
 import { registerVideoProcessingHandlers } from './ipc/video-processing-handlers'
 import { registerTakeHandlers } from './ipc/take-handlers'
 import { registerTakeExportHandlers } from './ipc/take-export-handlers'
+import { registerFrameExportHandlers } from './ipc/frame-export-handlers'
 import { registerTakeEditHandlers } from './ipc/take-edit-handlers'
 import { registerAssetApprovalHandlers } from './ipc/asset-approval-handlers'
 import { logger } from './logger'
@@ -41,6 +42,7 @@ if (!gotLock) {
   registerVideoProcessingHandlers()
   registerTakeHandlers()
   registerTakeExportHandlers()
+  registerFrameExportHandlers()
   registerTakeEditHandlers()
   registerAssetApprovalHandlers()
 

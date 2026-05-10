@@ -565,6 +565,33 @@ export const electronAPISchemas = {
     output: ipcResult({ durationSeconds: z.number() }),
   },
 
+  // Export a single frame of a clip's source video to the project's frames/
+  // directory. Output is always PNG at full resolution.
+  exportClipFrame: {
+    input: z.object({
+      projectId: z.string(),
+      videoPath: z.string(),
+      seekTime: z.number(),
+      filename: z.string(),
+      collisionMode: z.enum(['overwrite', 'auto-suffix']),
+    }),
+    output: ipcResult({ outputPath: z.string() }),
+  },
+  // Inspect whether a frame target name already exists in the project's
+  // frames/ directory. Used by the export-frames modal for live preview.
+  checkFrameTargetExists: {
+    input: z.object({
+      projectId: z.string(),
+      filename: z.string(),
+    }),
+    output: ipcResult({
+      exists: z.boolean(),
+      fullPath: z.string(),
+      autoSuffixedName: z.string(),
+      autoSuffixedFullPath: z.string(),
+    }),
+  },
+
   // Add a user-picked video file as a new take to an existing take folder.
   // Validates duration against the folder's base take; rejects mismatches.
   // If `trim` is provided, the source is re-encoded to a temp file with the

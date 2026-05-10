@@ -14,6 +14,8 @@ import { Group, Panel, Separator, type PanelImperativeHandle } from 'react-resiz
 import { ExportModal } from '../components/ExportModal'
 import { SaveSelectionAsTakeModal } from '../components/SaveSelectionAsTakeModal'
 import { SaveSelectionAsTakeProvider } from './editor/SaveSelectionAsTakeContext'
+import { ExportClipFramesModal } from '../components/ExportClipFramesModal'
+import { ExportClipFramesProvider } from './editor/ExportClipFramesContext'
 import { MenuBar, type MenuDefinition } from '../components/MenuBar'
 import { ImportTimelineModal } from '../components/ImportTimelineModal'
 import type { Asset, Project, TimelineClip } from '../types/project-model'
@@ -109,10 +111,12 @@ export function VideoEditor(props: VideoEditorProps) {
   return (
     <EditorStoreProvider store={editorStore}>
       <SaveSelectionAsTakeProvider>
-        <VideoEditorWithStore
-          currentProject={props.currentProject}
-          saveProject={props.saveProject}
-        />
+        <ExportClipFramesProvider>
+          <VideoEditorWithStore
+            currentProject={props.currentProject}
+            saveProject={props.saveProject}
+          />
+        </ExportClipFramesProvider>
       </SaveSelectionAsTakeProvider>
     </EditorStoreProvider>
   )
@@ -994,6 +998,7 @@ function VideoEditorWithStore({
       )}
 
       <SaveSelectionAsTakeModal projectId={currentProjectId} />
+      <ExportClipFramesModal projectId={currentProjectId} />
       
       {showImportTimelineModal && (
         <ImportTimelineModal

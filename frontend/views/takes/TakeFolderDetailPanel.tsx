@@ -16,7 +16,7 @@ interface TakeFolderDetailPanelProps {
   onUpdateMetadata: (takeIndex: number, patch: { label?: string; prompt?: string; platform?: string }) => Promise<{ ok: true } | { ok: false; error: string }>
   onSetDefaultTake: (takeFilename: string) => Promise<{ ok: true } | { ok: false; error: string }>
   onReplaceTakeVideo: (takeIndex: number, srcPath: string, mode: 'overwrite' | 'new-file') => Promise<{ ok: true } | { ok: false; error: string }>
-  onAddTake: (srcPath: string, metadata: { label?: string; prompt?: string; platform?: string }) => Promise<{ ok: true } | { ok: false; error: string }>
+  onAddTake: (srcPath: string, metadata: { label?: string; prompt?: string; platform?: string }, trim?: { startSeconds: number; durationSeconds: number }) => Promise<{ ok: true } | { ok: false; error: string }>
   onRenameFolder: (newName: string) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
@@ -435,11 +435,6 @@ export function TakeFolderDetailPanel({
           </div>
         </section>
 
-        {linkedAssets.length === 0 && (
-          <p className="text-[10px] text-zinc-600 px-1">
-            No project assets reference this folder yet. Edits won't propagate to the timeline until an asset with this <code>sourceFolder</code> exists.
-          </p>
-        )}
 
         {actionError && (
           <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 flex items-start gap-2">
@@ -470,11 +465,11 @@ export function TakeFolderDetailPanel({
         <AddTakeDialog
           baseDuration={folderDetail.duration}
           onClose={() => setAddDialogOpen(false)}
-          onConfirm={async (srcPath, metadata) => {
+          onConfirm={async (srcPath, metadata, trim) => {
             // Dialog owns its inline error UI — don't bubble to the panel-level
             // banner so closing the dialog doesn't leave a stale error stuck
             // at the bottom of the Takes tab.
-            return onAddTake(srcPath, metadata)
+            return onAddTake(srcPath, metadata, trim)
           }}
         />
       )}

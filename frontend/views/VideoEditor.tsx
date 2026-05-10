@@ -197,6 +197,14 @@ function VideoEditorWithStore({
   const currentProjectRef = useRef(currentProject)
   currentProjectRef.current = currentProject
 
+  // Pull take-related field updates that happened outside the editor (e.g.
+  // user added a take in the Takes tab) into the editor model, so the
+  // assets panel reflects them and the next autosave doesn't stomp them
+  // back to the editor's stale snapshot.
+  useEffect(() => {
+    actions.syncExternalAssetTakeUpdates(currentProject.assets)
+  }, [currentProject.assets, actions])
+
   const bladeShiftHeldRef = useRef(false)
   const [bladeShiftHeld, setBladeShiftHeld] = useState(false)
   useEffect(() => {

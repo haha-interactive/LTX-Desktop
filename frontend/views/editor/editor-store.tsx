@@ -7,6 +7,17 @@ import * as editorActions from './editor-actions'
 
 const MAX_UNDO_HISTORY = 50
 
+// Actions whose dispatch must NOT record an undo step. `undo`/`redo` are the
+// canonical examples; `syncExternalAssetTakeUpdates` is also here because it
+// reflects an external write (e.g. the Takes tab) into the editor model and
+// would create a confusing undo entry that "undoes" something the user did
+// in another tab.
+const NO_HISTORY_ACTIONS = new Set<string>([
+  'undo',
+  'redo',
+  'syncExternalAssetTakeUpdates',
+])
+
 type EditorSetStateAction = React.SetStateAction<EditorState>
 
 interface EditorStore {
@@ -129,7 +140,7 @@ export function useEditorActions(): EditorActions {
 
     for (const [key, action] of Object.entries(source)) {
       ;(actions as Record<string, (...args: any[]) => void>)[key] = (...args: any[]) => {
-        const apply = key === 'undo' || key === 'redo'
+        const apply = NO_HISTORY_ACTIONS.has(key)
           ? setStateWithoutHistory
           : setStateWithHistory
         apply(prev => action(prev, ...args))

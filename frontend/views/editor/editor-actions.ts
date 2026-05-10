@@ -1647,6 +1647,48 @@ export function updateAsset(state: EditorState, assetId: string, patch: Partial<
   }))
 }
 
+// Pulls take-related fields (takes/activeTakeIndex/path/thumbnails/dimensions/
+// duration) from external assets — i.e. assets that were modified outside the
+// editor (typically by the Takes tab while the editor was unmounted or
+// inactive). Bypasses the dirty flag so this sync doesn't trigger an autosave
+// loop, and is special-cased in the store dispatcher to bypass undo. Returns
+// the same state if nothing diverged.
+export function syncExternalAssetTakeUpdates(state: EditorState, externalAssets: Asset[]): EditorState {
+  const editorModel = state.editorModel
+  const externalById = new Map(externalAssets.map(a => [a.id, a]))
+  let changed = false
+  const nextAssets = editorModel.assets.map(asset => {
+    const ext = externalById.get(asset.id)
+    if (!ext) return asset
+    if (
+      ext.takes === asset.takes
+      && ext.activeTakeIndex === asset.activeTakeIndex
+      && ext.path === asset.path
+      && ext.duration === asset.duration
+      && ext.bigThumbnailPath === asset.bigThumbnailPath
+      && ext.smallThumbnailPath === asset.smallThumbnailPath
+      && ext.width === asset.width
+      && ext.height === asset.height
+    ) {
+      return asset
+    }
+    changed = true
+    return {
+      ...asset,
+      takes: ext.takes,
+      activeTakeIndex: ext.activeTakeIndex,
+      path: ext.path,
+      duration: ext.duration,
+      bigThumbnailPath: ext.bigThumbnailPath,
+      smallThumbnailPath: ext.smallThumbnailPath,
+      width: ext.width,
+      height: ext.height,
+    }
+  })
+  if (!changed) return state
+  return { ...state, editorModel: { ...editorModel, assets: nextAssets } }
+}
+
 export function setAssetBin(state: EditorState, assetId: string, binId?: string): EditorState {
   return updateAsset(state, assetId, { binId })
 }

@@ -46,6 +46,10 @@ export function AddTakeDialog({
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(true)
+  const [previewFailed, setPreviewFailed] = useState(false)
+  const [playheadPct, setPlayheadPct] = useState(0)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
 
   // Probe duration whenever srcPath changes via the picker.
   const probeSrc = useCallback(async (filePath: string) => {
@@ -54,6 +58,7 @@ export function AddTakeDialog({
     setSrcStatus({ kind: 'probing' })
     setTrimStart(0)
     setError(null)
+    setPreviewFailed(false)
     const result = await api.probeVideoDuration({ srcVideoPath: filePath })
     if (!result.success) {
       setSrcStatus({ kind: 'probe-failed', error: result.error })
@@ -122,12 +127,58 @@ export function AddTakeDialog({
     if (v.paused) {
       v.currentTime = Math.max(trimStart, Math.min(trimEnd - 0.05, v.currentTime))
       void v.play().catch(() => {})
-      setIsPlaying(true)
     } else {
       v.pause()
-      setIsPlaying(false)
     }
   }, [trimStart, trimEnd])
+
+  // Drive a white playhead across the trim track at requestAnimationFrame
+  // cadence (smooth) instead of <video>'s onTimeUpdate (~250ms, choppy).
+  // Runs only while the source is too-long (trimming UI is mounted) and the
+  // video is playing.
+  useEffect(() => {
+    if (!isTrimming || srcDuration <= 0 || !isPlaying || previewFailed) return
+    let raf = 0
+    const tick = () => {
+      const v = videoRef.current
+      if (v) setPlayheadPct(Math.max(0, Math.min(1, v.currentTime / srcDuration)))
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { if (raf) cancelAnimationFrame(raf) }
+  }, [isTrimming, srcDuration, isPlaying, previewFailed])
+
+  // When trimStart changes (drag, or loop snap), jump the white playhead
+  // back instantly without waiting for the next rAF/timeupdate.
+  useEffect(() => {
+    if (srcDuration > 0) setPlayheadPct(trimStart / srcDuration)
+  }, [trimStart, srcDuration])
+
+  // Pointer-driven drag of the red start handle. Translate clientX → time
+  // and clamp to [0, maxStart].
+  const handleRedPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const track = trackRef.current
+    if (!track || srcDuration <= 0) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    draggingRef.current = true
+  }, [srcDuration])
+
+  const handleRedPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return
+    const track = trackRef.current
+    if (!track || srcDuration <= 0) return
+    const rect = track.getBoundingClientRect()
+    if (rect.width <= 0) return
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const next = Math.max(0, Math.min(maxStart, pct * srcDuration))
+    setTrimStart(next)
+  }, [maxStart, srcDuration])
+
+  const handleRedPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    draggingRef.current = false
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* ignore */ }
+  }, [])
 
   const handleConfirm = useCallback(async () => {
     if (!srcPath || submitting) return
@@ -289,57 +340,94 @@ export function AddTakeDialog({
                 </span>
               </div>
 
-              {/* Video preview */}
-              <div className="relative bg-black rounded-lg overflow-hidden">
-                <video
-                  ref={videoRef}
-                  key={trimSrcUrl}
-                  src={trimSrcUrl}
-                  autoPlay
-                  muted
-                  playsInline
-                  onTimeUpdate={handleTimeUpdate}
-                  onLoadedMetadata={() => {
-                    const v = videoRef.current
-                    if (v) {
-                      v.currentTime = trimStart
-                      void v.play().catch(() => {})
-                    }
-                  }}
-                  className="w-full max-h-[40vh] object-contain bg-black"
-                />
-                <button
-                  onClick={togglePlay}
-                  className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
-                  title={isPlaying ? 'Pause' : 'Play'}
-                >
-                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                </button>
-              </div>
+              {/* Video preview — falls back to a static panel when the
+                  source codec isn't decodable by Chromium's <video> tag
+                  (e.g. HEVC .mov, MKV, ProRes). Trimming still works because
+                  the saved take is re-encoded via ffmpeg on confirm. */}
+              {previewFailed ? (
+                <div className="relative bg-zinc-900 rounded-lg border border-zinc-800 px-3 py-6 text-center">
+                  <p className="text-xs text-zinc-300">Live preview unavailable for this codec.</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Trimming still works — the selected {baseDuration.toFixed(2)}s window will be re-encoded on confirm.
+                  </p>
+                </div>
+              ) : (
+                <div className="relative bg-black rounded-lg overflow-hidden">
+                  <video
+                    ref={videoRef}
+                    key={trimSrcUrl}
+                    src={trimSrcUrl}
+                    autoPlay
+                    muted
+                    playsInline
+                    onTimeUpdate={handleTimeUpdate}
+                    onLoadedMetadata={() => {
+                      const v = videoRef.current
+                      if (v) {
+                        v.currentTime = trimStart
+                        void v.play().catch(() => {})
+                      }
+                    }}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onError={() => setPreviewFailed(true)}
+                    className="w-full max-h-[40vh] object-contain bg-black"
+                  />
+                  <button
+                    onClick={togglePlay}
+                    className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
+                    title={isPlaying ? 'Pause' : 'Play'}
+                  >
+                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </button>
+                </div>
+              )}
 
-              {/* Trim track: full-width strip showing the source duration with the
-                  trim window highlighted, plus a slider for moving the start. */}
+              {/* Trim track: full source duration. Red line = trim start
+                  (draggable). Blue line = trim end (red + baseDuration,
+                  follows). White line = current playback position, animated
+                  during loop playback so the user can see where they are
+                  inside the trim window. */}
               <div>
-                <div className="relative h-6 rounded bg-zinc-800 overflow-hidden">
+                <div
+                  ref={trackRef}
+                  className="relative h-12 rounded bg-zinc-800 select-none touch-none"
+                >
+                  {/* Highlighted trim window */}
                   <div
-                    className="absolute top-0 bottom-0 bg-blue-500/40 border-x-2 border-blue-400"
+                    className="absolute top-0 bottom-0 bg-blue-500/20 pointer-events-none"
                     style={{
                       left: `${(trimStart / srcDuration) * 100}%`,
                       width: `${(baseDuration / srcDuration) * 100}%`,
                     }}
                   />
+                  {/* White playhead — current playback position */}
+                  <div
+                    className="absolute top-0 bottom-0 w-px bg-white/90 pointer-events-none shadow-[0_0_4px_rgba(255,255,255,0.6)]"
+                    style={{ left: `${playheadPct * 100}%` }}
+                  />
+                  {/* Blue end line */}
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-blue-400 pointer-events-none"
+                    style={{ left: `calc(${(trimEnd / srcDuration) * 100}% - 1px)` }}
+                  />
+                  {/* Red start handle — wider invisible hit area for grabbing */}
+                  <div
+                    onPointerDown={handleRedPointerDown}
+                    onPointerMove={handleRedPointerMove}
+                    onPointerUp={handleRedPointerUp}
+                    onPointerCancel={handleRedPointerUp}
+                    className="absolute top-0 bottom-0 cursor-ew-resize"
+                    style={{
+                      left: `calc(${(trimStart / srcDuration) * 100}% - 6px)`,
+                      width: '12px',
+                    }}
+                    title="Drag to choose where the trim window starts"
+                  >
+                    <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-0.5 bg-red-500" />
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={maxStart}
-                  step={0.05}
-                  value={trimStart}
-                  onChange={(e) => setTrimStart(parseFloat(e.target.value))}
-                  className="w-full h-1 mt-2 accent-blue-500 cursor-pointer"
-                  title="Drag to choose where the trim window starts"
-                />
-                <div className="flex justify-between text-[10px] text-zinc-500 mt-1 tabular-nums">
+                <div className="flex justify-between text-[10px] text-zinc-500 mt-2 tabular-nums">
                   <span>0s</span>
                   <span className="text-blue-300 font-semibold">
                     keep {baseDuration.toFixed(2)}s starting at {trimStart.toFixed(2)}s
@@ -348,7 +436,7 @@ export function AddTakeDialog({
                 </div>
               </div>
               <p className="text-[10px] text-zinc-500">
-                The video plays in a loop within the highlighted window so you can preview exactly what gets saved. The trimmed segment is re-encoded on confirm.
+                Drag the red line to choose the trim start; the blue line marks the end. The white line shows the current playback position as the video loops. The trimmed segment is re-encoded on confirm.
               </p>
             </div>
           )}

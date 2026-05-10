@@ -126,21 +126,35 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
     }
   }, [projectId])
 
-  // Combined list: disk-side (project takes/) + asset-derived (external by-reference imports).
-  // Deduped by path; on collision the disk entry wins (origin='project').
+  // The takes-tab list mirrors the project's assets: a folder shows up here
+  // iff it's linked to at least one project asset that has takes. This keeps
+  // the takes tab in sync with the Video Editor / Storyboard — deleting an
+  // asset in either view drops the folder from this list, while leaving the
+  // disk files untouched. Orphan folders on disk can be re-imported via the
+  // Import button.
   const combinedFolders = useMemo<TakeFolderListEntry[]>(() => {
-    if (!activeProject) return folders
-    const seen = new Set(folders.map(f => f.path))
-    const fromAssets: TakeFolderListEntry[] = []
-    const seenInAssets = new Set<string>()
+    if (!activeProject) return []
+    const linkedFolderPaths = new Set<string>()
     for (const asset of activeProject.assets) {
       if (!asset.takes || asset.takes.length === 0) continue
       const folder = effectiveSourceFolder(asset, projectId)
-      if (!folder) continue
-      if (seen.has(folder)) continue
-      if (seenInAssets.has(folder)) continue
-      seenInAssets.add(folder)
-      fromAssets.push({
+      if (folder) linkedFolderPaths.add(folder)
+    }
+    const result: TakeFolderListEntry[] = []
+    const seen = new Set<string>()
+    // Disk-side folders that have a linked asset — keep richer disk metadata.
+    for (const f of folders) {
+      if (!linkedFolderPaths.has(f.path)) continue
+      result.push(f)
+      seen.add(f.path)
+    }
+    // External (out-of-takes-dir) assets — by definition linked.
+    for (const asset of activeProject.assets) {
+      if (!asset.takes || asset.takes.length === 0) continue
+      const folder = effectiveSourceFolder(asset, projectId)
+      if (!folder || seen.has(folder)) continue
+      seen.add(folder)
+      result.push({
         name: basenameOf(folder),
         path: folder,
         takeCount: asset.takes.length,
@@ -148,10 +162,9 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
         origin: 'external',
       })
     }
-    const merged = [...folders, ...fromAssets]
-    merged.sort((a, b) => a.name.localeCompare(b.name))
-    return merged
-  }, [folders, activeProject])
+    result.sort((a, b) => a.name.localeCompare(b.name))
+    return result
+  }, [folders, activeProject, projectId])
 
   // Load folder list whenever project changes.
   useEffect(() => {

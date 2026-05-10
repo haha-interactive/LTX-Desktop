@@ -483,6 +483,16 @@ export const electronAPISchemas = {
       })),
     }),
   },
+
+  // Approve a list of asset file-paths so their containing directories pass
+  // path-validation. Used at project-open time to keep external take folders
+  // (and other off-root asset paths) readable across app restarts.
+  approveAssetPaths: {
+    input: z.object({
+      paths: z.array(z.string()),
+    }),
+    output: ipcResult({ count: z.number() }),
+  },
 } as const
 
 type Schemas = typeof electronAPISchemas

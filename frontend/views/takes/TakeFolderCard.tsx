@@ -1,4 +1,4 @@
-import { Layers, Film } from 'lucide-react'
+import { Layers, Film, FolderInput, ExternalLink } from 'lucide-react'
 import type { TakeFolderListEntry } from './useTakesTabData'
 
 interface TakeFolderCardProps {
@@ -29,7 +29,26 @@ export function TakeFolderCard({ folder, selected, onSelect }: TakeFolderCardPro
         <Layers className="h-4 w-4 text-zinc-400" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{folder.name}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-sm font-medium truncate flex-1">{folder.name}</p>
+          {folder.origin === 'external' ? (
+            <span
+              className="flex items-center gap-0.5 px-1 rounded bg-blue-500/15 text-blue-300 text-[9px] font-semibold uppercase tracking-wider flex-shrink-0"
+              title={folder.path}
+            >
+              <ExternalLink className="h-2.5 w-2.5" />
+              Imported
+            </span>
+          ) : (
+            <span
+              className="flex items-center gap-0.5 px-1 rounded bg-zinc-800 text-zinc-400 text-[9px] font-semibold uppercase tracking-wider flex-shrink-0"
+              title={folder.path}
+            >
+              <FolderInput className="h-2.5 w-2.5" />
+              Project
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5">
           <span className="flex items-center gap-1">
             <Film className="h-3 w-3" />

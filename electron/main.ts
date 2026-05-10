@@ -10,6 +10,7 @@ import { registerVideoProcessingHandlers } from './ipc/video-processing-handlers
 import { registerTakeHandlers } from './ipc/take-handlers'
 import { registerTakeExportHandlers } from './ipc/take-export-handlers'
 import { registerTakeEditHandlers } from './ipc/take-edit-handlers'
+import { registerAssetApprovalHandlers } from './ipc/asset-approval-handlers'
 import { logger } from './logger'
 import { initSessionLog } from './logging-management'
 import { stopPythonBackend } from './python-backend'
@@ -41,6 +42,7 @@ if (!gotLock) {
   registerTakeHandlers()
   registerTakeExportHandlers()
   registerTakeEditHandlers()
+  registerAssetApprovalHandlers()
 
   app.on('second-instance', () => {
     const mainWindow = getMainWindow()

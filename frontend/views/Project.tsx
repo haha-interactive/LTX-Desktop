@@ -9,6 +9,7 @@ import { VideoEditor } from './VideoEditor'
 import { TakesTab } from './takes/TakesTab'
 import { StoryboardTab } from './storyboard/StoryboardTab'
 import type { ProjectTab } from '../types/project-model'
+import { useProjectPathApproval } from '../lib/use-project-path-approval'
 import {
   hasVisualAssetMetadataForMigration,
   runVisualAssetMetadataMigration,
@@ -27,6 +28,7 @@ export function Project() {
     setPendingIcLoraUpdate,
   } = useProjects()
   const { goHome } = useView()
+  useProjectPathApproval(activeProject)
   const [assetMetadataMigrationProgress, setAssetMetadataMigrationProgress] = useState({ running: false, total: 0, completed: 0 })
   const [upgradePassProjectId, setUpgradePassProjectId] = useState<string | null>(null)
   const activeProjectId = activeProject?.id ?? null

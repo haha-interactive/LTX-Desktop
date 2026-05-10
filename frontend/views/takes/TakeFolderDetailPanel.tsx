@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Save, Star, RefreshCw, Film } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Save, Star, RefreshCw, Film, FolderOpen } from 'lucide-react'
 import type { Asset, AssetTake } from '../../types/project-model'
 import { Button } from '../../components/ui/button'
 import { Tooltip } from '../../components/ui/tooltip'
@@ -130,29 +130,35 @@ export function TakeFolderDetailPanel({
 
   return (
     <>
-      <div className="h-full flex flex-col gap-4 p-6 overflow-y-auto">
-        <header className="flex items-baseline justify-between flex-wrap gap-2">
-          <div>
-            <h2 className="text-lg font-semibold text-white">{folderDetail.displayName}</h2>
-            <p className="text-xs text-zinc-500">
-              {totalTakes} take{totalTakes === 1 ? '' : 's'} · base duration {formatDuration(folderDetail.duration)}
-              {linkedAssets.length > 0 && (
-                <> · linked to {linkedAssets.length} asset{linkedAssets.length === 1 ? '' : 's'} in this project</>
-              )}
-            </p>
-          </div>
-        </header>
+      <div className="h-full flex flex-col">
+        {/* Sticky top: header + video + toolbar + filmstrip. Doesn't scroll. */}
+        <div className="flex-shrink-0 px-6 pt-6 pb-3 space-y-3">
+          <header className="flex items-baseline justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-white">{folderDetail.displayName}</h2>
+              <p className="text-xs text-zinc-500">
+                {totalTakes} take{totalTakes === 1 ? '' : 's'} · base duration {formatDuration(folderDetail.duration)}
+                {linkedAssets.length > 0 && (
+                  <> · linked to {linkedAssets.length} asset{linkedAssets.length === 1 ? '' : 's'} in this project</>
+                )}
+              </p>
+            </div>
+          </header>
 
-        {/* Video preview */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
-          <div className="aspect-video bg-black flex items-center justify-center relative">
+          {/* Video preview — height capped so toolbar stays visible on shorter windows */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+            <div
+              className="bg-black flex items-center justify-center relative"
+              style={{ maxHeight: '38vh', minHeight: '160px' }}
+            >
             {currentTake ? (
               <video
                 ref={videoRef}
                 key={currentTake.path}
                 src={takeVideoSrc(currentTake)}
                 controls
-                className="w-full h-full object-contain"
+                className="max-h-[38vh] w-auto max-w-full object-contain"
+                style={{ minHeight: '160px' }}
               />
             ) : (
               <span className="text-zinc-600 text-sm">No takes</span>
@@ -192,6 +198,21 @@ export function TakeFolderDetailPanel({
               )}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Tooltip content="Open the take folder in your system file manager">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 border-zinc-700 text-zinc-300 text-[11px] px-2.5 disabled:opacity-40"
+                  onClick={() => {
+                    if (!currentTake) return
+                    window.electronAPI?.showItemInFolder({ filePath: currentTake.path })
+                  }}
+                  disabled={!currentTake}
+                >
+                  <FolderOpen className="h-3 w-3 mr-1" />
+                  Show in folder
+                </Button>
+              </Tooltip>
               <Button
                 variant="outline"
                 size="sm"
@@ -267,6 +288,10 @@ export function TakeFolderDetailPanel({
             })}
           </div>
         )}
+        </div>
+
+        {/* Scrollable bottom: metadata form + warnings + errors */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-3 min-h-0">
 
         {/* Metadata editor */}
         <section className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 space-y-3">
@@ -333,6 +358,7 @@ export function TakeFolderDetailPanel({
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {replaceDialogOpen && currentTake && (

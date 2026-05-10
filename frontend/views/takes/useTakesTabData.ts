@@ -3,11 +3,48 @@ import type { Asset, AssetTake, Project } from '../../types/project-model'
 import { logger } from '../../lib/logger'
 import { useProjects } from '../../contexts/ProjectContext'
 
+export type TakeFolderOrigin = 'project' | 'external'
+
 export interface TakeFolderListEntry {
   name: string
   path: string
   takeCount: number
   baseDuration: number | null
+  origin: TakeFolderOrigin
+}
+
+function basenameOf(folderPath: string): string {
+  const parts = folderPath.split(/[\\/]/).filter(Boolean)
+  return parts[parts.length - 1] || folderPath
+}
+
+// Legacy assets imported before commit 1801204 don't carry `sourceFolder`.
+// Recover it from the takes' filesystem paths when possible. We only treat an
+// asset as a take-folder import when ALL takes share the same parent directory
+// AND that directory isn't the project assets root (basename === projectId)
+// or any other "project-*" pseudo-folder. Otherwise this catches retake-history
+// assets whose takes live directly in the project root and tries to load them
+// as take folders, spamming `Manifest not found` errors.
+function deriveSourceFolderFromAsset(asset: Asset, projectId: string): string | null {
+  if (!asset.takes || asset.takes.length === 0) return null
+  const dirs: (string | null)[] = asset.takes
+    .map(t => t.path)
+    .filter((p): p is string => Boolean(p))
+    .map(p => {
+      const i = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))
+      return i > 0 ? p.slice(0, i) : null
+    })
+  if (dirs.length === 0 || dirs.some(d => d === null)) return null
+  const first = dirs[0]!
+  if (!dirs.every(d => d === first)) return null
+  const basename = first.split(/[\\/]/).filter(Boolean).pop() || first
+  if (basename === projectId) return null
+  if (/^project-/i.test(basename)) return null
+  return first
+}
+
+function effectiveSourceFolder(asset: Asset, projectId: string): string | null {
+  return asset.sourceFolder ?? deriveSourceFolderFromAsset(asset, projectId)
 }
 
 export type TakeFolderResultLike = {
@@ -27,9 +64,9 @@ function toTakeArray(takes: TakeFolderResultLike['takes']): AssetTake[] {
   return takes.map(t => ({ ...t }))
 }
 
-function projectAssetsForFolder(project: Project | null, folderPath: string): Asset[] {
+function projectAssetsForFolder(project: Project | null, folderPath: string, projectId: string): Asset[] {
   if (!project) return []
-  return project.assets.filter(asset => asset.sourceFolder === folderPath)
+  return project.assets.filter(asset => effectiveSourceFolder(asset, projectId) === folderPath)
 }
 
 export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
@@ -55,7 +92,7 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
         setListError(result.error)
         setFolders([])
       } else {
-        setFolders(result.folders)
+        setFolders(result.folders.map(f => ({ ...f, origin: 'project' as const })))
       }
     } catch (err) {
       setListError(err instanceof Error ? err.message : String(err))
@@ -63,6 +100,33 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
       setLoadingList(false)
     }
   }, [projectId])
+
+  // Combined list: disk-side (project takes/) + asset-derived (external by-reference imports).
+  // Deduped by path; on collision the disk entry wins (origin='project').
+  const combinedFolders = useMemo<TakeFolderListEntry[]>(() => {
+    if (!activeProject) return folders
+    const seen = new Set(folders.map(f => f.path))
+    const fromAssets: TakeFolderListEntry[] = []
+    const seenInAssets = new Set<string>()
+    for (const asset of activeProject.assets) {
+      if (!asset.takes || asset.takes.length === 0) continue
+      const folder = effectiveSourceFolder(asset, projectId)
+      if (!folder) continue
+      if (seen.has(folder)) continue
+      if (seenInAssets.has(folder)) continue
+      seenInAssets.add(folder)
+      fromAssets.push({
+        name: basenameOf(folder),
+        path: folder,
+        takeCount: asset.takes.length,
+        baseDuration: asset.duration ?? null,
+        origin: 'external',
+      })
+    }
+    const merged = [...folders, ...fromAssets]
+    merged.sort((a, b) => a.name.localeCompare(b.name))
+    return merged
+  }, [folders, activeProject])
 
   // Load folder list whenever project changes.
   useEffect(() => {
@@ -107,12 +171,22 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
 
   // Propagate a refreshed folder result into ProjectContext: every Asset whose
   // sourceFolder matches gets its takes/active-take fields updated in place.
-  const syncRefreshedFolderToProject = useCallback((refreshed: TakeFolderResultLike) => {
-    const matching = projectAssetsForFolder(activeProject, refreshed.sourceFolder)
+  // When `promoteActiveTake` is true (Set-as-default flow), the linked assets'
+  // activeTakeIndex is overwritten with the manifest's new selected index — this
+  // mirrors the editor's asset-take-cycle UX so the timeline picks up the new
+  // primary take immediately. Otherwise (replace-video / metadata edits), the
+  // asset's existing per-asset selection is preserved.
+  const syncRefreshedFolderToProject = useCallback((
+    refreshed: TakeFolderResultLike,
+    opts: { promoteActiveTake?: boolean } = {},
+  ) => {
+    const matching = projectAssetsForFolder(activeProject, refreshed.sourceFolder, projectId)
     for (const asset of matching) {
-      const idx = asset.activeTakeIndex !== undefined
-        ? Math.min(Math.max(0, asset.activeTakeIndex), refreshed.takes.length - 1)
-        : refreshed.activeTakeIndex
+      const idx = opts.promoteActiveTake
+        ? refreshed.activeTakeIndex
+        : (asset.activeTakeIndex !== undefined
+            ? Math.min(Math.max(0, asset.activeTakeIndex), refreshed.takes.length - 1)
+            : refreshed.activeTakeIndex)
       const active = refreshed.takes[idx]
       if (!active) continue
       updateAsset(projectId, asset.id, {
@@ -128,9 +202,12 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
     }
   }, [activeProject, projectId, updateAsset])
 
-  const applyRefreshed = useCallback((refreshed: TakeFolderResultLike) => {
+  const applyRefreshed = useCallback((
+    refreshed: TakeFolderResultLike,
+    opts: { promoteActiveTake?: boolean } = {},
+  ) => {
     setFolderDetail(refreshed)
-    syncRefreshedFolderToProject(refreshed)
+    syncRefreshedFolderToProject(refreshed, opts)
     // Also update the list entry's metadata (take count / base duration may have shifted).
     void refreshList()
   }, [refreshList, syncRefreshedFolderToProject])
@@ -191,12 +268,12 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
       duration: result.duration,
       activeTakeIndex: result.activeTakeIndex,
       takes: toTakeArray(result.takes),
-    })
+    }, { promoteActiveTake: true })
     return { ok: true }
   }, [applyRefreshed, projectId, selectedFolderPath])
 
   const linkedAssetsForSelectedFolder = useMemo<Asset[]>(() => (
-    selectedFolderPath ? projectAssetsForFolder(activeProject, selectedFolderPath) : []
+    selectedFolderPath ? projectAssetsForFolder(activeProject, selectedFolderPath, projectId) : []
   ), [activeProject, selectedFolderPath])
 
   // Log errors for visibility.
@@ -204,7 +281,7 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
   useEffect(() => { if (detailError) logger.warn(`Takes-tab detail error: ${detailError}`) }, [detailError])
 
   return {
-    folders,
+    folders: combinedFolders,
     loadingList,
     listError,
 

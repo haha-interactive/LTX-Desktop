@@ -21,6 +21,8 @@ export function TakesTab({ projectId }: TakesTabProps) {
     replaceTakeVideo,
     updateTakeMetadata,
     setDefaultTake,
+    addTake,
+    renameFolder,
   } = useTakesTabData({ projectId })
 
   return (
@@ -69,6 +71,8 @@ export function TakesTab({ projectId }: TakesTabProps) {
           onUpdateMetadata={updateTakeMetadata}
           onSetDefaultTake={setDefaultTake}
           onReplaceTakeVideo={replaceTakeVideo}
+          onAddTake={addTake}
+          onRenameFolder={renameFolder}
         />
       </main>
     </div>

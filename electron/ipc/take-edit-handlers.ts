@@ -1,5 +1,7 @@
 import { logger } from '../logger'
 import {
+  addTakeToFolder,
+  renameTakeFolder,
   replaceTakeVideo,
   setTakeFolderSelected,
   updateTakeMetadata,
@@ -37,6 +39,26 @@ export function registerTakeEditHandlers(): void {
       return { success: true, ...folder }
     } catch (error) {
       logger.error(`Error setting take folder selected: ${error}`)
+      return { success: false, error: errMessage(error) }
+    }
+  })
+
+  handle('addTakeToFolder', (input) => {
+    try {
+      const folder = addTakeToFolder(input)
+      return { success: true, ...folder }
+    } catch (error) {
+      logger.error(`Error adding take to folder: ${error}`)
+      return { success: false, error: errMessage(error) }
+    }
+  })
+
+  handle('renameTakeFolder', (input) => {
+    try {
+      const result = renameTakeFolder(input)
+      return { success: true, ...result }
+    } catch (error) {
+      logger.error(`Error renaming take folder: ${error}`)
       return { success: false, error: errMessage(error) }
     }
   })

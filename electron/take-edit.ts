@@ -7,6 +7,7 @@ import {
   type TakeManifest,
 } from './take-manifest'
 import {
+  nextTakeFilename,
   probeDurationSeconds,
   readManifestSafe,
   writeManifestAtomic,
@@ -157,5 +158,99 @@ export function setTakeFolderSelected(input: SetTakeFolderSelectedInput): TakeFo
   }
   const nextManifest: TakeManifest = { ...manifest, selected: input.takeFilename }
   writeManifestAtomic(folderResolved, nextManifest)
+  return loadTakeFolder(folderResolved, input.projectId)
+}
+
+interface RenameTakeFolderInput {
+  folderPath: string
+  newName: string
+  projectId: string
+}
+
+// Updates the manifest's `name` field only — no disk rename. This avoids
+// triggering thumbnail regeneration (which would happen if the folder's
+// basename changed, since thumbnail filenames are derived from the folder
+// name) and avoids updating every linked asset's `sourceFolder` path. The
+// displayName surfaced by loadTakeFolder already prefers manifest.name over
+// the directory basename, so the UI updates immediately.
+export function renameTakeFolder(input: RenameTakeFolderInput): TakeFolderResult {
+  const folderResolved = path.resolve(input.folderPath)
+  if (!fs.existsSync(folderResolved) || !fs.statSync(folderResolved).isDirectory()) {
+    throw new Error(`Take folder not found: ${folderResolved}`)
+  }
+  const manifest = readManifestSafe(folderResolved)
+  if (!manifest) {
+    throw new Error(`Manifest missing or invalid in ${folderResolved}`)
+  }
+  const newName = input.newName.trim()
+  if (!newName) {
+    throw new Error('Name cannot be empty')
+  }
+  const nextManifest: TakeManifest = { ...manifest, name: newName }
+  writeManifestAtomic(folderResolved, nextManifest)
+  return loadTakeFolder(folderResolved, input.projectId)
+}
+
+interface AddTakeToFolderInput {
+  folderPath: string
+  srcVideoPath: string
+  metadata?: { label?: string; prompt?: string; platform?: string }
+  projectId: string
+}
+
+export function addTakeToFolder(input: AddTakeToFolderInput): TakeFolderResult {
+  const folderResolved = path.resolve(input.folderPath)
+  if (!fs.existsSync(folderResolved) || !fs.statSync(folderResolved).isDirectory()) {
+    throw new Error(`Take folder not found: ${folderResolved}`)
+  }
+  const manifest = readManifestSafe(folderResolved)
+  if (!manifest) {
+    throw new Error(`Manifest missing or invalid in ${folderResolved}`)
+  }
+
+  const srcResolved = path.resolve(input.srcVideoPath)
+  if (!fs.existsSync(srcResolved) || !fs.statSync(srcResolved).isFile()) {
+    throw new Error(`Source video file not found: ${srcResolved}`)
+  }
+
+  // Duration validation against the folder's base take.
+  const baseFile = manifest.takes[0].file
+  const baseAbs = path.join(folderResolved, baseFile)
+  if (!fs.existsSync(baseAbs)) {
+    throw new Error(`Base take '${baseFile}' missing from disk`)
+  }
+  const baseDuration = probeDurationSeconds(baseAbs)
+  const srcDuration = probeDurationSeconds(srcResolved)
+  if (Math.abs(baseDuration - srcDuration) > DURATION_EPSILON_SECONDS) {
+    throw new Error(
+      `New video duration (${srcDuration.toFixed(3)}s) does not match folder base duration (${baseDuration.toFixed(3)}s). ` +
+      `Take folders require all videos to share duration within one frame.`,
+    )
+  }
+
+  const newName = nextTakeFilename(folderResolved, manifest)
+  const newAbs = path.join(folderResolved, newName)
+  fs.copyFileSync(srcResolved, newAbs)
+
+  const meta = input.metadata ?? {}
+  const newEntry = {
+    file: newName,
+    ...(meta.label?.trim() ? { label: meta.label.trim() } : {}),
+    ...(meta.prompt?.trim() ? { prompt: meta.prompt.trim() } : {}),
+    ...(meta.platform?.trim() ? { platform: meta.platform.trim() } : {}),
+  }
+  const nextManifest: TakeManifest = {
+    ...manifest,
+    takes: [...manifest.takes, newEntry],
+    // selected unchanged — user explicitly promotes via Set default if desired.
+  }
+
+  try {
+    writeManifestAtomic(folderResolved, nextManifest)
+  } catch (err) {
+    try { fs.unlinkSync(newAbs) } catch { /* ignore */ }
+    throw err
+  }
+
   return loadTakeFolder(folderResolved, input.projectId)
 }

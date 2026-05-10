@@ -272,6 +272,52 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
     return { ok: true }
   }, [applyRefreshed, projectId, selectedFolderPath])
 
+  // Renames are display-name only (manifest.name). The folder on disk and
+  // every linked asset's sourceFolder/paths are unchanged, so we just refresh
+  // the detail view + folder list to pick up the new displayName.
+  const renameFolder = useCallback(async (newName: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const api = window.electronAPI
+    if (!api || !selectedFolderPath) return { ok: false, error: 'No folder selected' }
+    const result = await api.renameTakeFolder({
+      folderPath: selectedFolderPath,
+      newName,
+      projectId,
+    })
+    if (!result.success) return { ok: false, error: result.error }
+    setFolderDetail({
+      sourceFolder: result.sourceFolder,
+      displayName: result.displayName,
+      duration: result.duration,
+      activeTakeIndex: result.activeTakeIndex,
+      takes: toTakeArray(result.takes),
+    })
+    void refreshList()
+    return { ok: true }
+  }, [projectId, refreshList, selectedFolderPath])
+
+  const addTake = useCallback(async (
+    srcVideoPath: string,
+    metadata?: { label?: string; prompt?: string; platform?: string },
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const api = window.electronAPI
+    if (!api || !selectedFolderPath) return { ok: false, error: 'No folder selected' }
+    const result = await api.addTakeToFolder({
+      folderPath: selectedFolderPath,
+      srcVideoPath,
+      metadata,
+      projectId,
+    })
+    if (!result.success) return { ok: false, error: result.error }
+    applyRefreshed({
+      sourceFolder: result.sourceFolder,
+      displayName: result.displayName,
+      duration: result.duration,
+      activeTakeIndex: result.activeTakeIndex,
+      takes: toTakeArray(result.takes),
+    })
+    return { ok: true }
+  }, [applyRefreshed, projectId, selectedFolderPath])
+
   const linkedAssetsForSelectedFolder = useMemo<Asset[]>(() => (
     selectedFolderPath ? projectAssetsForFolder(activeProject, selectedFolderPath, projectId) : []
   ), [activeProject, selectedFolderPath])
@@ -298,5 +344,7 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
     replaceTakeVideo,
     updateTakeMetadata,
     setDefaultTake,
+    addTake,
+    renameFolder,
   }
 }

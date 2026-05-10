@@ -71,7 +71,7 @@ export function writeManifestAtomic(folderPath: string, manifest: TakeManifest):
   fs.renameSync(tmpPath, manifestPath)
 }
 
-function sanitizeFolderName(name: string): string {
+export function sanitizeFolderName(name: string): string {
   const trimmed = name.trim()
   if (!trimmed) throw new Error('Folder name cannot be empty')
   if (/[\\/]/.test(trimmed)) throw new Error('Folder name cannot contain path separators')
@@ -101,8 +101,11 @@ export function listProjectTakesFolders(projectId: string): TakesFolderSummary[]
         }
       }
     }
+    // Prefer manifest's display name (the renameable label) over the
+    // directory's basename so the sidebar reflects renames immediately.
+    const displayName = manifest.name?.trim() || entry.name
     out.push({
-      name: entry.name,
+      name: displayName,
       path: folderPath,
       takeCount: manifest.takes.length,
       baseDuration,

@@ -493,6 +493,66 @@ export const electronAPISchemas = {
     }),
     output: ipcResult({ count: z.number() }),
   },
+
+  // Rename a take folder's display name. Updates the manifest's `name` field
+  // only — does NOT rename the directory on disk, so thumbnails are not
+  // regenerated and linked asset sourceFolder paths stay valid.
+  renameTakeFolder: {
+    input: z.object({
+      folderPath: z.string(),
+      newName: z.string(),
+      projectId: z.string(),
+    }),
+    output: ipcResult({
+      sourceFolder: z.string(),
+      displayName: z.string(),
+      duration: z.number(),
+      activeTakeIndex: z.number(),
+      takes: z.array(z.object({
+        path: z.string(),
+        bigThumbnailPath: z.string(),
+        smallThumbnailPath: z.string(),
+        width: z.number(),
+        height: z.number(),
+        createdAt: z.number(),
+        label: z.string().optional(),
+        prompt: z.string().optional(),
+        platform: z.string().optional(),
+      })),
+    }),
+  },
+
+  // Add a user-picked video file as a new take to an existing take folder.
+  // Validates duration against the folder's base take; rejects mismatches.
+  addTakeToFolder: {
+    input: z.object({
+      folderPath: z.string(),
+      srcVideoPath: z.string(),
+      metadata: z.object({
+        label: z.string().optional(),
+        prompt: z.string().optional(),
+        platform: z.string().optional(),
+      }).optional(),
+      projectId: z.string(),
+    }),
+    output: ipcResult({
+      sourceFolder: z.string(),
+      displayName: z.string(),
+      duration: z.number(),
+      activeTakeIndex: z.number(),
+      takes: z.array(z.object({
+        path: z.string(),
+        bigThumbnailPath: z.string(),
+        smallThumbnailPath: z.string(),
+        width: z.number(),
+        height: z.number(),
+        createdAt: z.number(),
+        label: z.string().optional(),
+        prompt: z.string().optional(),
+        platform: z.string().optional(),
+      })),
+    }),
+  },
 } as const
 
 type Schemas = typeof electronAPISchemas

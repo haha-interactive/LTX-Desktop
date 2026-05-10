@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Save, Star, RefreshCw, Film, FolderOpen } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Save, Star, RefreshCw, Film, FolderOpen, Plus, Pencil, Check, X as XIcon } from 'lucide-react'
 import type { Asset, AssetTake } from '../../types/project-model'
 import { Button } from '../../components/ui/button'
 import { Tooltip } from '../../components/ui/tooltip'
 import { pathToFileUrl } from '../../lib/file-url'
 import { ReplaceTakeVideoDialog } from './ReplaceTakeVideoDialog'
+import { AddTakeDialog } from './AddTakeDialog'
 import type { TakeFolderResultLike } from './useTakesTabData'
 
 interface TakeFolderDetailPanelProps {
@@ -15,6 +16,8 @@ interface TakeFolderDetailPanelProps {
   onUpdateMetadata: (takeIndex: number, patch: { label?: string; prompt?: string; platform?: string }) => Promise<{ ok: true } | { ok: false; error: string }>
   onSetDefaultTake: (takeFilename: string) => Promise<{ ok: true } | { ok: false; error: string }>
   onReplaceTakeVideo: (takeIndex: number, srcPath: string, mode: 'overwrite' | 'new-file') => Promise<{ ok: true } | { ok: false; error: string }>
+  onAddTake: (srcPath: string, metadata: { label?: string; prompt?: string; platform?: string }) => Promise<{ ok: true } | { ok: false; error: string }>
+  onRenameFolder: (newName: string) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
 function takeVideoSrc(take: AssetTake): string {
@@ -37,6 +40,8 @@ export function TakeFolderDetailPanel({
   onUpdateMetadata,
   onSetDefaultTake,
   onReplaceTakeVideo,
+  onAddTake,
+  onRenameFolder,
 }: TakeFolderDetailPanelProps) {
   const [previewIdx, setPreviewIdx] = useState(0)
   const [labelInput, setLabelInput] = useState('')
@@ -45,7 +50,11 @@ export function TakeFolderDetailPanel({
   const [savingMeta, setSavingMeta] = useState(false)
   const [savingDefault, setSavingDefault] = useState(false)
   const [replaceDialogOpen, setReplaceDialogOpen] = useState(false)
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const [savingRename, setSavingRename] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -103,6 +112,37 @@ export function TakeFolderDetailPanel({
     if (!result.ok) setActionError(result.error)
   }, [currentTake, dirty, labelInput, onUpdateMetadata, platformInput, previewIdx, promptInput])
 
+  const startRename = useCallback(() => {
+    if (!folderDetail) return
+    setRenameValue(folderDetail.displayName)
+    setRenaming(true)
+    setActionError(null)
+  }, [folderDetail])
+
+  const cancelRename = useCallback(() => {
+    setRenaming(false)
+    setRenameValue('')
+  }, [])
+
+  const commitRename = useCallback(async () => {
+    if (!folderDetail) return
+    const trimmed = renameValue.trim()
+    if (!trimmed || trimmed === folderDetail.displayName) {
+      cancelRename()
+      return
+    }
+    setSavingRename(true)
+    setActionError(null)
+    const result = await onRenameFolder(trimmed)
+    setSavingRename(false)
+    if (!result.ok) {
+      setActionError(result.error)
+      return
+    }
+    setRenaming(false)
+    setRenameValue('')
+  }, [cancelRename, folderDetail, onRenameFolder, renameValue])
+
   const handleSetDefault = useCallback(async () => {
     if (!currentTake) return
     setSavingDefault(true)
@@ -134,8 +174,48 @@ export function TakeFolderDetailPanel({
         {/* Sticky top: header + video + toolbar + filmstrip. Doesn't scroll. */}
         <div className="flex-shrink-0 px-6 pt-6 pb-3 space-y-3">
           <header className="flex items-baseline justify-between flex-wrap gap-2">
-            <div>
-              <h2 className="text-lg font-semibold text-white">{folderDetail.displayName}</h2>
+            <div className="min-w-0">
+              {renaming ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void commitRename()
+                      else if (e.key === 'Escape') cancelRename()
+                    }}
+                    disabled={savingRename}
+                    className="bg-zinc-900 border border-blue-500 rounded-lg px-2 py-1 text-lg font-semibold text-white focus:outline-none w-[20rem] max-w-full"
+                  />
+                  <button
+                    onClick={() => void commitRename()}
+                    disabled={savingRename}
+                    title="Save (Enter)"
+                    className="p-1 rounded hover:bg-zinc-800 text-green-400 disabled:opacity-40"
+                  >
+                    {savingRename ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={cancelRename}
+                    disabled={savingRename}
+                    title="Cancel (Esc)"
+                    className="p-1 rounded hover:bg-zinc-800 text-zinc-400 disabled:opacity-40"
+                  >
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={startRename}
+                  className="group flex items-center gap-1.5 max-w-full"
+                  title="Rename folder"
+                >
+                  <h2 className="text-lg font-semibold text-white truncate">{folderDetail.displayName}</h2>
+                  <Pencil className="h-3.5 w-3.5 text-zinc-600 group-hover:text-zinc-300 transition-colors flex-shrink-0" />
+                </button>
+              )}
               <p className="text-xs text-zinc-500">
                 {totalTakes} take{totalTakes === 1 ? '' : 's'} · base duration {formatDuration(folderDetail.duration)}
                 {linkedAssets.length > 0 && (
@@ -198,6 +278,17 @@ export function TakeFolderDetailPanel({
               )}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Tooltip content="Add another video as a new take to this folder">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 border-zinc-700 text-zinc-300 text-[11px] px-2.5"
+                  onClick={() => setAddDialogOpen(true)}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add take
+                </Button>
+              </Tooltip>
               <Tooltip content="Open the take folder in your system file manager">
                 <Button
                   variant="outline"
@@ -368,13 +459,22 @@ export function TakeFolderDetailPanel({
           baseDuration={folderDetail.duration}
           onClose={() => setReplaceDialogOpen(false)}
           onConfirm={async (srcPath, mode) => {
-            setActionError(null)
+            // Dialog owns its inline error UI — don't leak to the panel banner.
             const result = await onReplaceTakeVideo(previewIdx, srcPath, mode)
-            if (!result.ok) {
-              setActionError(result.error)
-              return false
-            }
-            return true
+            return result.ok
+          }}
+        />
+      )}
+
+      {addDialogOpen && (
+        <AddTakeDialog
+          baseDuration={folderDetail.duration}
+          onClose={() => setAddDialogOpen(false)}
+          onConfirm={async (srcPath, metadata) => {
+            // Dialog owns its inline error UI — don't bubble to the panel-level
+            // banner so closing the dialog doesn't leave a stale error stuck
+            // at the bottom of the Takes tab.
+            return onAddTake(srcPath, metadata)
           }}
         />
       )}

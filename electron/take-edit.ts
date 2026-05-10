@@ -1,5 +1,7 @@
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
+import { spawnSync } from 'child_process'
 import {
   DURATION_EPSILON_SECONDS,
   loadTakeFolder,
@@ -12,6 +14,36 @@ import {
   readManifestSafe,
   writeManifestAtomic,
 } from './take-export'
+import { findFfmpegPath } from './export/ffmpeg-utils'
+
+function ffmpegTrimToTemp(srcPath: string, startSeconds: number, durationSeconds: number): string {
+  const ffmpegPath = findFfmpegPath()
+  if (!ffmpegPath) throw new Error('ffmpeg not found')
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ltx-take-trim-'))
+  const tempOut = path.join(tempDir, `trimmed_${Date.now()}.mp4`)
+  // Re-encode for frame-accurate trim. Output -ss after -i ensures accuracy
+  // even when the source isn't keyframe-aligned at the start; libx264/aac
+  // keeps duration exact across formats.
+  const args = [
+    '-y',
+    '-i', srcPath,
+    '-ss', startSeconds.toFixed(3),
+    '-t', durationSeconds.toFixed(3),
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+    '-crf', '18',
+    '-c:a', 'aac',
+    '-movflags', '+faststart',
+    tempOut,
+  ]
+  const result = spawnSync(ffmpegPath, args, { timeout: 120000 })
+  if (result.status !== 0) {
+    const stderr = (result.stderr?.toString() || '').split('\n').filter(Boolean).slice(-5).join('\n')
+    try { fs.rmSync(tempDir, { recursive: true, force: true }) } catch { /* ignore */ }
+    throw new Error(`ffmpeg trim failed (code ${result.status}): ${stderr.slice(0, 300)}`)
+  }
+  return tempOut
+}
 
 export type ReplaceMode = 'overwrite' | 'new-file'
 
@@ -195,6 +227,10 @@ interface AddTakeToFolderInput {
   folderPath: string
   srcVideoPath: string
   metadata?: { label?: string; prompt?: string; platform?: string }
+  // Optional trim — when present, the source is re-encoded to a temp file
+  // with [start, start + duration] before being copied into the folder.
+  // Use when the source video is longer than the folder's base duration.
+  trim?: { startSeconds: number; durationSeconds: number }
   projectId: string
 }
 
@@ -221,16 +257,41 @@ export function addTakeToFolder(input: AddTakeToFolderInput): TakeFolderResult {
   }
   const baseDuration = probeDurationSeconds(baseAbs)
   const srcDuration = probeDurationSeconds(srcResolved)
-  if (Math.abs(baseDuration - srcDuration) > DURATION_EPSILON_SECONDS) {
-    throw new Error(
-      `New video duration (${srcDuration.toFixed(3)}s) does not match folder base duration (${baseDuration.toFixed(3)}s). ` +
-      `Take folders require all videos to share duration within one frame.`,
-    )
+
+  // Pick the actual file to copy. If trimming, re-encode a temp segment first.
+  let copySrc = srcResolved
+  let trimTempDir: string | null = null
+  if (input.trim) {
+    if (Math.abs(input.trim.durationSeconds - baseDuration) > DURATION_EPSILON_SECONDS) {
+      throw new Error(
+        `Trim duration (${input.trim.durationSeconds.toFixed(3)}s) does not match folder base duration (${baseDuration.toFixed(3)}s).`,
+      )
+    }
+    if (input.trim.startSeconds < 0 || input.trim.startSeconds + input.trim.durationSeconds > srcDuration + DURATION_EPSILON_SECONDS) {
+      throw new Error(
+        `Trim window (${input.trim.startSeconds.toFixed(3)}s..${(input.trim.startSeconds + input.trim.durationSeconds).toFixed(3)}s) is out of bounds for source duration ${srcDuration.toFixed(3)}s.`,
+      )
+    }
+    copySrc = ffmpegTrimToTemp(srcResolved, input.trim.startSeconds, input.trim.durationSeconds)
+    trimTempDir = path.dirname(copySrc)
+  } else {
+    if (Math.abs(baseDuration - srcDuration) > DURATION_EPSILON_SECONDS) {
+      throw new Error(
+        `New video duration (${srcDuration.toFixed(3)}s) does not match folder base duration (${baseDuration.toFixed(3)}s). ` +
+        `Take folders require all videos to share duration within one frame.`,
+      )
+    }
   }
 
   const newName = nextTakeFilename(folderResolved, manifest)
   const newAbs = path.join(folderResolved, newName)
-  fs.copyFileSync(srcResolved, newAbs)
+  try {
+    fs.copyFileSync(copySrc, newAbs)
+  } catch (err) {
+    if (trimTempDir) { try { fs.rmSync(trimTempDir, { recursive: true, force: true }) } catch { /* ignore */ } }
+    throw err
+  }
+  if (trimTempDir) { try { fs.rmSync(trimTempDir, { recursive: true, force: true }) } catch { /* ignore */ } }
 
   const meta = input.metadata ?? {}
   const newEntry = {
@@ -253,4 +314,12 @@ export function addTakeToFolder(input: AddTakeToFolderInput): TakeFolderResult {
   }
 
   return loadTakeFolder(folderResolved, input.projectId)
+}
+
+export function probeVideoDurationSeconds(srcVideoPath: string): number {
+  const resolved = path.resolve(srcVideoPath)
+  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+    throw new Error(`Video file not found: ${resolved}`)
+  }
+  return probeDurationSeconds(resolved)
 }

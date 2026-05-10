@@ -522,8 +522,18 @@ export const electronAPISchemas = {
     }),
   },
 
+  // Probe the duration of an arbitrary video file. Used by the Add Take
+  // dialog to decide whether to offer the trim UI when the source is longer
+  // than the folder's base duration.
+  probeVideoDuration: {
+    input: z.object({ srcVideoPath: z.string() }),
+    output: ipcResult({ durationSeconds: z.number() }),
+  },
+
   // Add a user-picked video file as a new take to an existing take folder.
   // Validates duration against the folder's base take; rejects mismatches.
+  // If `trim` is provided, the source is re-encoded to a temp file with the
+  // requested [start, start+duration] segment before being copied in.
   addTakeToFolder: {
     input: z.object({
       folderPath: z.string(),
@@ -532,6 +542,10 @@ export const electronAPISchemas = {
         label: z.string().optional(),
         prompt: z.string().optional(),
         platform: z.string().optional(),
+      }).optional(),
+      trim: z.object({
+        startSeconds: z.number(),
+        durationSeconds: z.number(),
       }).optional(),
       projectId: z.string(),
     }),

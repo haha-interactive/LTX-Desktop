@@ -1,6 +1,7 @@
 import { logger } from '../logger'
 import {
   addTakeToFolder,
+  probeVideoDurationSeconds,
   renameTakeFolder,
   replaceTakeVideo,
   setTakeFolderSelected,
@@ -59,6 +60,16 @@ export function registerTakeEditHandlers(): void {
       return { success: true, ...result }
     } catch (error) {
       logger.error(`Error renaming take folder: ${error}`)
+      return { success: false, error: errMessage(error) }
+    }
+  })
+
+  handle('probeVideoDuration', ({ srcVideoPath }) => {
+    try {
+      const durationSeconds = probeVideoDurationSeconds(srcVideoPath)
+      return { success: true, durationSeconds }
+    } catch (error) {
+      logger.error(`Error probing video duration: ${error}`)
       return { success: false, error: errMessage(error) }
     }
   })

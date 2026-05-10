@@ -298,6 +298,7 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
   const addTake = useCallback(async (
     srcVideoPath: string,
     metadata?: { label?: string; prompt?: string; platform?: string },
+    trim?: { startSeconds: number; durationSeconds: number },
   ): Promise<{ ok: true } | { ok: false; error: string }> => {
     const api = window.electronAPI
     if (!api || !selectedFolderPath) return { ok: false, error: 'No folder selected' }
@@ -305,6 +306,7 @@ export function useTakesTabData({ projectId }: UseTakesTabDataParams) {
       folderPath: selectedFolderPath,
       srcVideoPath,
       metadata,
+      trim,
       projectId,
     })
     if (!result.success) return { ok: false, error: result.error }
